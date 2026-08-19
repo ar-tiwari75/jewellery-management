@@ -245,7 +245,7 @@ export async function createInvoice(
     .from("invoice_items")
     .insert(items);
 
-  if (itemError) {
+    if (itemError) {
     console.error(
       "Failed to create invoice items:",
       itemError,
@@ -258,13 +258,20 @@ export async function createInvoice(
      * RLS allows this because the invoice
      * belongs to the current user's shop.
      */
-    await supabase
+    const { error: cleanupError } = await supabase
       .from("invoices")
       .delete()
       .eq(
         "id",
         invoice.id,
       );
+
+    if (cleanupError) {
+      console.error(
+        "Failed to clean up orphaned invoice:",
+        cleanupError,
+      );
+    }
 
     throw new Error(
       "Unable to create invoice items.",
@@ -301,47 +308,65 @@ export async function createInvoice(
  */
 async function generateInvoiceNumber(
   shopId: string,
+  retries = 3,
 ): Promise<string> {
   const year =
     new Date().getFullYear();
 
-  const {
-    count,
-    error,
-  } = await supabase
-    .from("invoices")
-    .select("id", {
-      count: "exact",
-      head: true,
-    })
-    .eq(
-      "shop_id",
-      shopId,
-    )
-    .gte(
-      "invoice_date",
-      `${year}-01-01`,
-    )
-    .lt(
-      "invoice_date",
-      `${year + 1}-01-01`,
-    );
-
-  if (error) {
-    console.error(
-      "Failed to generate invoice number:",
+  for (let attempt = 0; attempt < retries; attempt++) {
+    const {
+      count,
       error,
-    );
+    } = await supabase
+      .from("invoices")
+      .select("id", {
+        count: "exact",
+        head: true,
+      })
+      .eq(
+        "shop_id",
+        shopId,
+      )
+      .gte(
+        "invoice_date",
+        `${year}-01-01`,
+      )
+      .lt(
+        "invoice_date",
+        `${year + 1}-01-01`,
+      );
 
-    throw new Error(
-      "Unable to generate invoice number.",
-    );
+    if (error) {
+      console.error(
+        "Failed to generate invoice number:",
+        error,
+      );
+
+      throw new Error(
+        "Unable to generate invoice number.",
+      );
+    }
+
+    const nextNumber =
+      (count ?? 0) + 1;
+
+    const candidate = `INV-${year}-${String(
+      nextNumber,
+    ).padStart(4, "0")}`;
+
+    const { data: existing } = await supabase
+      .from("invoices")
+      .select("id")
+      .eq("shop_id", shopId)
+      .eq("invoice_number", candidate)
+      .limit(1);
+
+    if (!existing || existing.length === 0) {
+      return candidate;
+    }
   }
 
-  const nextNumber =
-    (count ?? 0) + 1;
-
-  return `INV-${year}-${String(
-    nextNumber,
-  ).padStart(4, "0")}`;
+  throw new Error(
+    "Unable to generate a unique invoice number. Please try again.",
+  );
 }

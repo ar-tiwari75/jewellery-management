@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Building2,
+  CreditCard,
   Mail,
   MapPin,
   Phone,
@@ -12,6 +13,10 @@ import {
   saveShopSettings,
   type ShopSettings,
 } from "./shopSettings.service";
+
+import {
+  useSubscription,
+} from "../../contexts/SubscriptionContext";
 
 interface SettingsForm {
   shop_name: string;
@@ -61,6 +66,9 @@ function settingsToForm(
 }
 
 export default function Settings() {
+  const { subscription } =
+    useSubscription();
+
   const [form, setForm] =
     useState<SettingsForm>(
       EMPTY_FORM,
@@ -79,37 +87,53 @@ export default function Settings() {
     useState<string | null>(null);
 
   useEffect(() => {
-    loadSettings();
-  }, []);
+    let mounted = true;
 
-  async function loadSettings() {
-    try {
-      setLoading(true);
-      setError(null);
+    async function loadSettings() {
+      try {
+        setLoading(true);
+        setError(null);
 
-      const settings =
-        await getShopSettings();
+        const settings =
+          await getShopSettings();
 
-      if (settings) {
-        setForm(
-          settingsToForm(settings),
+        if (!mounted) {
+          return;
+        }
+
+        if (settings) {
+          setForm(
+            settingsToForm(settings),
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Failed to load settings:",
+          error,
         );
-      }
-    } catch (error) {
-      console.error(
-        "Failed to load settings:",
-        error,
-      );
 
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Unable to load settings.",
-      );
-    } finally {
-      setLoading(false);
+        if (!mounted) {
+          return;
+        }
+
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Unable to load settings.",
+        );
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
     }
-  }
+
+    loadSettings();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   function updateField(
     field: keyof SettingsForm,
@@ -190,6 +214,86 @@ export default function Settings() {
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-700">
           {success}
         </div>
+      )}
+
+      {/* Subscription info */}
+      {subscription && (
+        <section className="rounded-xl border border-[#E4E4E7] bg-white">
+          <div className="flex items-center gap-3 border-b border-[#E4E4E7] px-5 py-5">
+            <div className="rounded-lg bg-[#F5EFE6] p-2 text-[#B08D57]">
+              <CreditCard size={18} />
+            </div>
+
+            <div>
+              <h2 className="font-semibold text-[#18181B]">
+                Subscription
+              </h2>
+
+              <p className="mt-1 text-xs text-[#71717A]">
+                Your shop's subscription status
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 p-5 sm:grid-cols-3">
+            <div>
+              <p className="text-xs text-[#71717A]">
+                Status
+              </p>
+
+              <p className="mt-1 text-sm font-medium text-[#18181B]">
+                {subscription.isExpired
+                  ? "Expired"
+                  : "Active"}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs text-[#71717A]">
+                Plan
+              </p>
+
+              <p className="mt-1 text-sm font-medium capitalize text-[#18181B]">
+                {subscription.plan}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs text-[#71717A]">
+                {subscription.isExpired
+                  ? "Expired on"
+                  : subscription.expiryDate
+                    ? "Expires on"
+                    : "Expiry"}
+              </p>
+
+              <p className="mt-1 text-sm font-medium text-[#18181B]">
+                {subscription.expiryDate
+                  ? new Date(
+                      subscription.expiryDate,
+                    ).toLocaleDateString(
+                      "en-IN",
+                      {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      },
+                    )
+                  : "No expiry set"}
+              </p>
+            </div>
+          </div>
+
+          {subscription.isExpired && (
+            <div className="border-t border-[#E4E4E7] px-5 py-4">
+              <p className="text-sm text-[#71717A]">
+                Your subscription has expired.
+                Contact support to renew and
+                continue using all features.
+              </p>
+            </div>
+          )}
+        </section>
       )}
 
       <form

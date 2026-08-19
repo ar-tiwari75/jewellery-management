@@ -72,7 +72,7 @@ export default function Sidebar({
           flex w-64 flex-col
           bg-[#18181B] text-white
           transition-transform duration-200
-          lg:static lg:translate-x-0
+          lg:sticky lg:top-0 lg:h-screen lg:translate-x-0
           ${open ? "translate-x-0" : "-translate-x-full"}
         `}
       >
@@ -101,7 +101,7 @@ export default function Sidebar({
           </button>
         </div>
 
-        <nav className="flex-1 px-3 py-6">
+        <nav className="flex-1 overflow-y-auto px-3 py-6">
           <p className="mb-3 px-3 text-xs font-medium uppercase tracking-wider text-zinc-500">
             Workspace
           </p>

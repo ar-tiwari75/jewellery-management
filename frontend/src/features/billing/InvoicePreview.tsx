@@ -31,35 +31,49 @@ export default function InvoicePreview() {
       return;
     }
 
-    loadInvoice(invoiceId);
-  }, [invoiceId]);
+    let mounted = true;
 
-  async function loadInvoice(
-    id: string,
-  ) {
-    try {
-      setLoading(true);
-      setError(null);
+    async function loadInvoice() {
+      try {
+        setLoading(true);
+        setError(null);
 
-      const result =
-        await getInvoiceDocumentData(id);
+        const result =
+          await getInvoiceDocumentData(invoiceId!);
 
-      setData(result);
-    } catch (error) {
-      console.error(
-        "Failed to load invoice preview:",
-        error,
-      );
+        if (!mounted) {
+          return;
+        }
 
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Unable to load invoice.",
-      );
-    } finally {
-      setLoading(false);
+        setData(result);
+      } catch (error) {
+        console.error(
+          "Failed to load invoice preview:",
+          error,
+        );
+
+        if (!mounted) {
+          return;
+        }
+
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Unable to load invoice.",
+        );
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
     }
-  }
+
+    loadInvoice();
+
+    return () => {
+      mounted = false;
+    };
+  }, [invoiceId]);
 
   function handlePrint() {
     window.print();

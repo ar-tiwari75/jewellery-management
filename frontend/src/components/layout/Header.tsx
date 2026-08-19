@@ -1,5 +1,17 @@
 import { Menu, Bell, LogOut } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+
+const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
+  "/": { title: "Dashboard", subtitle: "Overview of your jewellery business" },
+  "/customers": { title: "Customers", subtitle: "Manage customer information and billing history" },
+  "/billing": { title: "Billing", subtitle: "Create invoices and manage bills" },
+  "/billing/invoices": { title: "Invoice History", subtitle: "View and reprint previously generated invoices" },
+  "/settings": { title: "Settings", subtitle: "Manage your shop settings" },
+  "/users": { title: "Team", subtitle: "Manage your shop's team members" },
+  "/inventory": { title: "Inventory", subtitle: "Manage your jewellery inventory" },
+  "/reports": { title: "Reports", subtitle: "View business reports and analytics" },
+};
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -9,6 +21,9 @@ export default function Header({
   onMenuClick,
 }: HeaderProps) {
   const { user, profile, signOut } = useAuth();
+  const location = useLocation();
+
+  const page = PAGE_TITLES[location.pathname] ?? { title: "Dashboard", subtitle: "" };
 
   async function handleLogout() {
     try {
@@ -29,12 +44,14 @@ export default function Header({
 
       <div className="hidden lg:block">
         <h1 className="text-lg font-semibold text-[#18181B]">
-          Dashboard
+          {page.title}
         </h1>
 
-        <p className="text-sm text-[#71717A]">
-          Overview of your jewellery business
-        </p>
+        {page.subtitle && (
+          <p className="text-sm text-[#71717A]">
+            {page.subtitle}
+          </p>
+        )}
       </div>
 
       <div className="ml-auto flex items-center gap-4">

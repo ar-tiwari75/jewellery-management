@@ -81,16 +81,17 @@ function App() {
         />
 
         <Route
-          path="*"
-          element={<Navigate to="/" replace />}
-        />
-        <Route
             path="/billing/invoice/:invoiceId"
             element={<InvoicePreview />}
         />
         <Route
           path="/billing/invoices"
           element={<InvoiceHistory />}
+        />
+
+        <Route
+          path="*"
+          element={<Navigate to="/" replace />}
         />
       </Routes>
     </AppLayout>

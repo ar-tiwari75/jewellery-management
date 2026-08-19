@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Calculator,
+  Lock,
   Plus,
   Trash2,
   UserRound,
@@ -27,6 +28,10 @@ import {
   type CreateInvoiceInput,
   type CreateInvoiceItemInput,
 } from "./billing.service";
+
+import {
+  useSubscription,
+} from "../../contexts/SubscriptionContext";
 
 interface Customer {
   id: string;
@@ -228,6 +233,12 @@ function calculateItem(
 }
 
 export default function Billing() {
+  const { subscription } =
+    useSubscription();
+
+  const readOnly =
+    subscription?.isExpired ?? false;
+
   const [customers, setCustomers] =
     useState<Customer[]>([]);
 
@@ -258,9 +269,6 @@ export default function Billing() {
     useState(false);
 
   const [saveError, setSaveError] =
-    useState<string | null>(null);
-
-  const [saveSuccess, setSaveSuccess] =
     useState<string | null>(null);
 
     const navigate = useNavigate();
@@ -535,7 +543,6 @@ export default function Billing() {
 
   async function handleSaveInvoice() {
   setSaveError(null);
-  setSaveSuccess(null);
 
   if (!customerId) {
     setSaveError(
@@ -694,12 +701,6 @@ export default function Billing() {
         </p>
       </section>
 
-      {saveSuccess && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-700">
-          {saveSuccess}
-        </div>
-      )}
-
       {saveError && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
           {saveError}
@@ -747,9 +748,9 @@ export default function Billing() {
                   )
                 }
                 disabled={
-                  customersLoading
+                  customersLoading || readOnly
                 }
-                className="mt-2 w-full rounded-lg border border-[#D4D4D8] bg-white px-3 py-2.5 text-sm text-[#18181B] outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57]"
+                className="mt-2 w-full rounded-lg border border-[#D4D4D8] bg-white px-3 py-2.5 text-sm text-[#18181B] outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <option value="">
                   {customersLoading
@@ -799,7 +800,8 @@ export default function Billing() {
               <button
                 type="button"
                 onClick={addItem}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#D4D4D8] px-3 py-2 text-sm font-medium text-[#18181B] hover:bg-[#FAFAFA]"
+                disabled={readOnly}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#D4D4D8] px-3 py-2 text-sm font-medium text-[#18181B] hover:bg-[#FAFAFA] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Plus size={16} />
                 Add item
@@ -851,7 +853,8 @@ export default function Billing() {
                                 item.id,
                               )
                             }
-                            className="rounded-lg p-2 text-[#71717A] hover:bg-red-50 hover:text-red-600"
+                            disabled={readOnly}
+                            className="rounded-lg p-2 text-[#71717A] hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
                             title="Remove item"
                           >
                             <Trash2
@@ -887,7 +890,8 @@ export default function Billing() {
                               )
                             }
                             placeholder="e.g. Gold Ring"
-                            className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57]"
+                            disabled={readOnly}
+                            className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed disabled:opacity-50"
                           />
                         </div>
 
@@ -911,7 +915,8 @@ export default function Billing() {
                                   .value as MetalType,
                               )
                             }
-                            className="mt-2 w-full rounded-lg border border-[#D4D4D8] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57]"
+                            disabled={readOnly}
+                            className="mt-2 w-full rounded-lg border border-[#D4D4D8] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <option value="GOLD">
                               Gold
@@ -943,7 +948,8 @@ export default function Billing() {
                                   .value,
                               )
                             }
-                            className="mt-2 w-full rounded-lg border border-[#D4D4D8] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57]"
+                            disabled={readOnly}
+                            className="mt-2 w-full rounded-lg border border-[#D4D4D8] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {purityOptions.map(
                               (purity) => (
@@ -990,7 +996,8 @@ export default function Billing() {
                                 )
                               }
                               placeholder="0.000"
-                              className="w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 pr-10 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57]"
+                              disabled={readOnly}
+                              className="w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 pr-10 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed disabled:opacity-50"
                             />
 
                             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#71717A]">
@@ -1031,7 +1038,8 @@ export default function Billing() {
                                 )
                               }
                               placeholder="0.00"
-                              className="w-full rounded-lg border border-[#D4D4D8] py-2.5 pl-7 pr-16 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57]"
+                              disabled={readOnly}
+                              className="w-full rounded-lg border border-[#D4D4D8] py-2.5 pl-7 pr-16 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed disabled:opacity-50"
                             />
 
                             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#71717A]">
@@ -1076,7 +1084,9 @@ export default function Billing() {
                                   },
                                 )
                               }
-                              className="w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 pr-8 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57]"
+                              max="100"
+                              disabled={readOnly}
+                              className="w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 pr-8 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed disabled:opacity-50"
                             />
 
                             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#71717A]">
@@ -1116,7 +1126,8 @@ export default function Billing() {
                                   },
                                 )
                               }
-                              className="w-full rounded-lg border border-[#D4D4D8] py-2.5 pl-7 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57]"
+                              disabled={readOnly}
+                              className="w-full rounded-lg border border-[#D4D4D8] py-2.5 pl-7 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed disabled:opacity-50"
                             />
                           </div>
                         </div>
@@ -1152,7 +1163,8 @@ export default function Billing() {
                                   },
                                 )
                               }
-                              className="w-full rounded-lg border border-[#D4D4D8] py-2.5 pl-7 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57]"
+                              disabled={readOnly}
+                              className="w-full rounded-lg border border-[#D4D4D8] py-2.5 pl-7 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed disabled:opacity-50"
                             />
                           </div>
                         </div>
@@ -1295,7 +1307,9 @@ export default function Billing() {
                           event.target.value,
                         )
                       }
-                      className="w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 pr-8 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57]"
+                      disabled={readOnly}
+                      max="100"
+                      className="w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 pr-8 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed disabled:opacity-50"
                     />
 
                     <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#71717A]">
@@ -1329,17 +1343,24 @@ export default function Billing() {
                 type="button"
                 onClick={handleSaveInvoice}
                 disabled={
+                  readOnly ||
                   saving ||
                   calculatedItems.length ===
                     0
                 }
                 className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#B08D57] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#9C7B4C] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <Save size={17} />
+                {readOnly ? (
+                  <Lock size={17} />
+                ) : (
+                  <Save size={17} />
+                )}
 
-                {saving
-                  ? "Saving invoice..."
-                  : "Save & Generate Bill"}
+                {readOnly
+                  ? "Subscription expired"
+                  : saving
+                    ? "Saving invoice..."
+                    : "Save & Generate Bill"}
               </button>
 
               <p className="text-center text-xs leading-5 text-[#71717A]">

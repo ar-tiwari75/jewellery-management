@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Edit3,
+  Lock,
   Phone,
   Plus,
   Search,
@@ -14,6 +15,10 @@ import {
   updateCustomer,
   type Customer,
 } from "./customer.service";
+
+import {
+  useSubscription,
+} from "../contexts/SubscriptionContext";
 
 interface CustomerFormState {
   full_name: string;
@@ -89,6 +94,12 @@ function formatDate(
 }
 
 export default function Customers() {
+  const { subscription } =
+    useSubscription();
+
+  const readOnly =
+    subscription?.isExpired ?? false;
+
   const [customers, setCustomers] =
     useState<Customer[]>([]);
 
@@ -118,34 +129,60 @@ export default function Customers() {
   const [success, setSuccess] =
     useState<string | null>(null);
 
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
-    loadCustomers();
+    return () => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+      }
+    };
   }, []);
 
-  async function loadCustomers() {
-    try {
-      setLoading(true);
-      setError(null);
+  useEffect(() => {
+    let mounted = true;
 
-      const result =
-        await getCustomers();
+    async function loadCustomers() {
+      try {
+        setLoading(true);
+        setError(null);
 
-      setCustomers(result);
-    } catch (error) {
-      console.error(
-        "Failed to load customers:",
-        error,
-      );
+        const result =
+          await getCustomers();
 
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Unable to load customers.",
-      );
-    } finally {
-      setLoading(false);
+        if (!mounted) {
+          return;
+        }
+
+        setCustomers(result);
+      } catch (error) {
+        console.error(
+          "Failed to load customers:",
+          error,
+        );
+
+        if (!mounted) {
+          return;
+        }
+
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Unable to load customers.",
+        );
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
     }
-  }
+
+    loadCustomers();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const filteredCustomers =
     useMemo(() => {
@@ -280,7 +317,11 @@ export default function Customers() {
         );
       }
 
-      setTimeout(() => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+      }
+
+      closeTimerRef.current = setTimeout(() => {
         setModalOpen(false);
         setEditingCustomer(null);
         setForm(EMPTY_FORM);
@@ -324,10 +365,17 @@ export default function Customers() {
         <button
           type="button"
           onClick={openAddModal}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#B08D57] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#9C7B4C]"
+          disabled={readOnly}
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#B08D57] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#9C7B4C] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <Plus size={17} />
-          Add Customer
+          {readOnly ? (
+            <Lock size={17} />
+          ) : (
+            <Plus size={17} />
+          )}
+          {readOnly
+            ? "Subscription expired"
+            : "Add Customer"}
         </button>
       </section>
 
@@ -515,7 +563,8 @@ export default function Customers() {
                               customer,
                             )
                           }
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#D4D4D8] px-3 py-2 text-xs font-medium text-[#18181B] hover:bg-[#FAFAFA]"
+                          disabled={readOnly}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#D4D4D8] px-3 py-2 text-xs font-medium text-[#18181B] hover:bg-[#FAFAFA] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <Edit3
                             size={14}

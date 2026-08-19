@@ -22,6 +22,28 @@ function getLocalDateString(
 }
 
 export async function getDashboardMetrics(): Promise<DashboardMetrics> {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    throw new Error("You must be logged in.");
+  }
+
+  const { data: profile, error: profileError } =
+    await supabase
+      .from("profiles")
+      .select("shop_id")
+      .eq("id", user.id)
+      .single();
+
+  if (profileError || !profile?.shop_id) {
+    throw new Error("Unable to determine your shop.");
+  }
+
+  const shopId = profile.shop_id;
+
   const today = new Date();
 
   const todayDate =
@@ -47,7 +69,8 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     .select("id", {
       count: "exact",
       head: true,
-    });
+    })
+    .eq("shop_id", shopId);
 
   if (customerError) {
     console.error(
@@ -72,6 +95,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   } = await supabase
     .from("invoices")
     .select("grand_total")
+    .eq("shop_id", shopId)
     .eq("invoice_date", todayDate)
     .eq("status", "FINAL");
 
@@ -108,6 +132,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     .select(
       "grand_total, invoice_date",
     )
+    .eq("shop_id", shopId)
     .gte(
       "invoice_date",
       monthStartDate,

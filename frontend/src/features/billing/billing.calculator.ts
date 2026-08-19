@@ -72,6 +72,12 @@ export function calculateBillingItem(
     );
   }
 
+  if (input.wastagePercent > 100) {
+    throw new Error(
+      "Wastage cannot exceed 100%.",
+    );
+  }
+
   if (input.makingCharge < 0) {
     throw new Error(
       "Making charge cannot be negative.",
@@ -87,6 +93,12 @@ export function calculateBillingItem(
   if (input.gstPercent < 0) {
     throw new Error(
       "GST percentage cannot be negative.",
+    );
+  }
+
+  if (input.gstPercent > 100) {
+    throw new Error(
+      "GST percentage cannot exceed 100%.",
     );
   }
 

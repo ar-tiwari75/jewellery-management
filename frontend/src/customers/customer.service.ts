@@ -310,31 +310,48 @@ export async function updateCustomer(
   return data;
 }
 
-async function generateCustomerCode(shopId: string): Promise<string> {
-  const { count, error } =
-    await supabase
+async function generateCustomerCode(shopId: string, retries = 3): Promise<string> {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    const { count, error } =
+      await supabase
+        .from("customers")
+        .select("id", {
+          count: "exact",
+          head: true,
+        })
+        .eq("shop_id", shopId);
+
+    if (error) {
+      console.error(
+        "Failed to generate customer code:",
+        error,
+      );
+
+      throw new Error(
+        "Unable to generate customer code.",
+      );
+    }
+
+    const nextNumber =
+      (count ?? 0) + 1;
+
+    const candidate = `CUS-${String(
+      nextNumber,
+    ).padStart(4, "0")}`;
+
+    const { data: existing } = await supabase
       .from("customers")
-      .select("id", {
-        count: "exact",
-        head: true,
-      })
-      .eq("shop_id", shopId);
+      .select("id")
+      .eq("shop_id", shopId)
+      .eq("customer_code", candidate)
+      .limit(1);
 
-  if (error) {
-    console.error(
-      "Failed to generate customer code:",
-      error,
-    );
-
-    throw new Error(
-      "Unable to generate customer code.",
-    );
+    if (!existing || existing.length === 0) {
+      return candidate;
+    }
   }
 
-  const nextNumber =
-    (count ?? 0) + 1;
-
-  return `CUS-${String(
-    nextNumber,
-  ).padStart(4, "0")}`;
+  throw new Error(
+    "Unable to generate a unique customer code. Please try again.",
+  );
 }

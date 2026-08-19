@@ -77,11 +77,17 @@ export function AuthProvider({
   }
 
   useEffect(() => {
+    let mounted = true;
+
     async function initializeAuth() {
       const {
         data: { session },
       } =
         await supabase.auth.getSession();
+
+      if (!mounted) {
+        return;
+      }
 
       setSession(session);
 
@@ -104,6 +110,10 @@ export function AuthProvider({
           _event,
           session,
         ) => {
+          if (!mounted) {
+            return;
+          }
+
           setSession(session);
 
           if (session?.user) {
@@ -119,6 +129,7 @@ export function AuthProvider({
       );
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);

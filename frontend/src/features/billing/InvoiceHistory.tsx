@@ -76,33 +76,49 @@ export default function InvoiceHistory() {
     >("ALL");
 
   useEffect(() => {
-    loadInvoices();
-  }, []);
+    let mounted = true;
 
-  async function loadInvoices() {
-    try {
-      setLoading(true);
-      setError(null);
+    async function loadInvoices() {
+      try {
+        setLoading(true);
+        setError(null);
 
-      const result =
-        await getInvoices();
+        const result =
+          await getInvoices();
 
-      setInvoices(result);
-    } catch (error) {
-      console.error(
-        "Failed to load invoice history:",
-        error,
-      );
+        if (!mounted) {
+          return;
+        }
 
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Unable to load invoices.",
-      );
-    } finally {
-      setLoading(false);
+        setInvoices(result);
+      } catch (error) {
+        console.error(
+          "Failed to load invoice history:",
+          error,
+        );
+
+        if (!mounted) {
+          return;
+        }
+
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Unable to load invoices.",
+        );
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
     }
-  }
+
+    loadInvoices();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const filteredInvoices =
     invoices.filter((invoice) => {

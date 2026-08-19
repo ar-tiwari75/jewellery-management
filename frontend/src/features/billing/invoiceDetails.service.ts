@@ -79,6 +79,32 @@ export interface InvoiceDocumentData {
 export async function getInvoiceDocumentData(
   invoiceId: string,
 ): Promise<InvoiceDocumentData> {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    throw new Error(
+      "You must be logged in to view invoice details.",
+    );
+  }
+
+  const { data: profile, error: profileError } =
+    await supabase
+      .from("profiles")
+      .select("shop_id")
+      .eq("id", user.id)
+      .single();
+
+  if (profileError || !profile?.shop_id) {
+    throw new Error(
+      "Unable to determine your shop.",
+    );
+  }
+
+  const shopId = profile.shop_id;
+
   const [
     invoiceResult,
     shopResult,
@@ -129,6 +155,7 @@ export async function getInvoiceDocumentData(
         `,
       )
       .eq("id", invoiceId)
+      .eq("shop_id", shopId)
       .single(),
 
     supabase
@@ -145,6 +172,7 @@ export async function getInvoiceDocumentData(
           logo_url
         `,
       )
+      .eq("shop_id", shopId)
       .limit(1)
       .maybeSingle(),
   ]);

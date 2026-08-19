@@ -82,6 +82,26 @@ export async function getCustomers(): Promise<Customer[]> {
   return data ?? [];
 }
 
+async function getUserShopId(): Promise<string> {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Not authenticated.");
+  }
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("shop_id")
+    .eq("id", user.id)
+    .single();
+
+  if (error || !data) {
+    throw new Error("Unable to determine your shop.");
+  }
+
+  return data.shop_id;
+}
+
 export async function createCustomer(
   input: CreateCustomerInput,
 ): Promise<Customer> {
@@ -103,12 +123,17 @@ export async function createCustomer(
     );
   }
 
+  const shopId =
+    await getUserShopId();
+
   const customerCode =
-    await generateCustomerCode();
+    await generateCustomerCode(shopId);
 
   const { data, error } = await supabase
     .from("customers")
     .insert({
+      shop_id: shopId,
+
       customer_code:
         customerCode,
 
@@ -285,14 +310,15 @@ export async function updateCustomer(
   return data;
 }
 
-async function generateCustomerCode(): Promise<string> {
+async function generateCustomerCode(shopId: string): Promise<string> {
   const { count, error } =
     await supabase
       .from("customers")
       .select("id", {
         count: "exact",
         head: true,
-      });
+      })
+      .eq("shop_id", shopId);
 
   if (error) {
     console.error(

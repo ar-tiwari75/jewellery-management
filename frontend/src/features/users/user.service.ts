@@ -21,7 +21,8 @@ export async function getShopUsers(): Promise<ShopUser[]> {
   const { data, error } = await supabase.rpc("get_shop_users");
 
   if (error) {
-    throw error;
+    console.error("Failed to load shop users:", error);
+    return [];
   }
 
   return (data ?? []) as ShopUser[];

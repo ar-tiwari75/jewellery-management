@@ -367,11 +367,23 @@ export default function Dashboard() {
     <div className="space-y-6">
       {/* Page heading */}
       <section>
-        <p className="text-sm font-medium text-[#B08D57]">
-          {shopSettings?.shop_name || "Overview"}
-        </p>
+        <div className="inline-flex items-center gap-2.5 rounded-xl border border-[#E4E4E7] bg-white px-4 py-2.5 shadow-sm">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#B08D57]">
+            <span className="text-sm">&#128142;</span>
+          </div>
 
-        <h2 className="mt-1 text-2xl font-semibold tracking-tight text-[#18181B]">
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-[#71717A]">
+              Your Shop
+            </p>
+
+            <p className="text-base font-bold tracking-wide text-[#18181B]">
+              {shopSettings?.shop_name || "Shop"}
+            </p>
+          </div>
+        </div>
+
+        <h2 className="mt-4 text-2xl font-semibold tracking-tight text-[#18181B]">
           {getGreeting()}
         </h2>
 

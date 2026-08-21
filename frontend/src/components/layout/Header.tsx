@@ -1,6 +1,8 @@
+import { useEffect, useState } from "react";
 import { Menu, Bell, LogOut } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import { supabase } from "../../lib/supabase";
 
 const PAGE_TITLES: Record<string, { title: string; subtitle: string }> = {
   "/": { title: "Dashboard", subtitle: "Overview of your jewellery business" },
@@ -22,8 +24,22 @@ export default function Header({
 }: HeaderProps) {
   const { user, profile, signOut } = useAuth();
   const location = useLocation();
+  const [shopName, setShopName] = useState<string | null>(null);
 
   const page = PAGE_TITLES[location.pathname] ?? { title: "Dashboard", subtitle: "" };
+
+  useEffect(() => {
+    if (!profile?.shop_id) return;
+
+    supabase
+      .from("shop_settings")
+      .select("shop_name")
+      .eq("shop_id", profile.shop_id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.shop_name) setShopName(data.shop_name);
+      });
+  }, [profile?.shop_id]);
 
   async function handleLogout() {
     try {
@@ -43,6 +59,12 @@ export default function Header({
       </button>
 
       <div className="hidden lg:block">
+        {shopName && (
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#B08D57]">
+            {shopName}
+          </p>
+        )}
+
         <h1 className="text-lg font-semibold text-[#18181B]">
           {page.title}
         </h1>

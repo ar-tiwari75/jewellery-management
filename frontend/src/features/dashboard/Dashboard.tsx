@@ -367,23 +367,25 @@ export default function Dashboard() {
     <div className="space-y-6">
       {/* Page heading */}
       <section>
-        <div className="inline-flex items-center gap-2.5 rounded-xl border border-[#E4E4E7] bg-white px-4 py-2.5 shadow-sm">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#B08D57]">
-            <span className="text-sm">&#128142;</span>
-          </div>
+        <div className="overflow-hidden rounded-2xl border border-[#E8DFD0] bg-gradient-to-r from-[#1A1A1D] via-[#1F1E1B] to-[#1A1A1D] p-6 shadow-lg">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#D4A843] to-[#B08D57] shadow-md shadow-[#B08D57]/20">
+              <span className="text-xl">&#128142;</span>
+            </div>
 
-          <div>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-[#71717A]">
-              Your Shop
-            </p>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-widest text-[#B08D57]/70">
+                Welcome to
+              </p>
 
-            <p className="text-base font-bold tracking-wide text-[#18181B]">
-              {shopSettings?.shop_name || "Shop"}
-            </p>
+              <h1 className="mt-0.5 text-2xl font-bold tracking-wide text-white">
+                {shopSettings?.shop_name || "Your Shop"}
+              </h1>
+            </div>
           </div>
         </div>
 
-        <h2 className="mt-4 text-2xl font-semibold tracking-tight text-[#18181B]">
+        <h2 className="mt-5 text-2xl font-semibold tracking-tight text-[#18181B]">
           {getGreeting()}
         </h2>
 

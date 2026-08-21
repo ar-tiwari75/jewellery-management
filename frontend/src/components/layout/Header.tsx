@@ -66,9 +66,17 @@ export default function Header({
             {profile?.full_name || "User"}
           </p>
 
-          <p className="text-xs text-[#71717A]">
-            {user?.email}
-          </p>
+          <div className="mt-0.5 flex items-center justify-end gap-2">
+            <p className="text-xs text-[#71717A]">
+              {user?.email}
+            </p>
+
+            {profile?.role && (
+              <span className="inline-flex rounded-full bg-[#F5EFE6] px-2 py-0.5 text-[10px] font-medium text-[#B08D57]">
+                {profile.role}
+              </span>
+            )}
+          </div>
         </div>
 
         <button

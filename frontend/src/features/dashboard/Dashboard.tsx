@@ -23,6 +23,11 @@ import {
   type DashboardMetrics,
 } from "./dashboard.service";
 
+import {
+  getShopSettings,
+  type ShopSettings,
+} from "../settings/shopSettings.service";
+
 interface MetalRateCardProps {
   label: string;
   value: number;
@@ -132,6 +137,12 @@ export default function Dashboard() {
 
   const [dashboardMetricsError, setDashboardMetricsError] =
     useState<string | null>(null);
+
+  /*
+   * Shop settings
+   */
+  const [shopSettings, setShopSettings] =
+    useState<ShopSettings | null>(null);
 
   /*
    * Dashboard summary cards
@@ -303,6 +314,30 @@ export default function Dashboard() {
     loadDashboardMetrics();
   }, []);
 
+  /*
+   * Load shop settings
+   */
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadShopSettings() {
+      try {
+        const settings = await getShopSettings();
+        if (mounted) {
+          setShopSettings(settings);
+        }
+      } catch {
+        // Silent — shop name is non-critical
+      }
+    }
+
+    loadShopSettings();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   async function loadDashboardMetrics() {
     try {
       setDashboardMetricsLoading(true);
@@ -333,7 +368,7 @@ export default function Dashboard() {
       {/* Page heading */}
       <section>
         <p className="text-sm font-medium text-[#B08D57]">
-          Overview
+          {shopSettings?.shop_name || "Overview"}
         </p>
 
         <h2 className="mt-1 text-2xl font-semibold tracking-tight text-[#18181B]">

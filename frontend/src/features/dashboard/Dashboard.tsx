@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+import { supabase } from "../../lib/supabase";
+
 import {
   getLatestMetalRate,
   type DailyMetalRate,
@@ -23,10 +25,7 @@ import {
   type DashboardMetrics,
 } from "./dashboard.service";
 
-import {
-  getShopSettings,
-  type ShopSettings,
-} from "../settings/shopSettings.service";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface MetalRateCardProps {
   label: string;
@@ -141,8 +140,8 @@ export default function Dashboard() {
   /*
    * Shop settings
    */
-  const [shopSettings, setShopSettings] =
-    useState<ShopSettings | null>(null);
+  const { profile } = useAuth();
+  const [shopName, setShopName] = useState<string | null>(null);
 
   /*
    * Dashboard summary cards
@@ -315,28 +314,28 @@ export default function Dashboard() {
   }, []);
 
   /*
-   * Load shop settings
+   * Load shop name
    */
   useEffect(() => {
+    if (!profile?.shop_id) return;
+
     let mounted = true;
 
-    async function loadShopSettings() {
-      try {
-        const settings = await getShopSettings();
-        if (mounted) {
-          setShopSettings(settings);
+    supabase
+      .from("shop_settings")
+      .select("shop_name")
+      .eq("shop_id", profile.shop_id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (mounted && data?.shop_name) {
+          setShopName(data.shop_name);
         }
-      } catch {
-        // Silent — shop name is non-critical
-      }
-    }
-
-    loadShopSettings();
+      });
 
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [profile?.shop_id]);
 
   async function loadDashboardMetrics() {
     try {
@@ -379,7 +378,7 @@ export default function Dashboard() {
               </p>
 
               <h1 className="mt-0.5 text-2xl font-bold tracking-wide text-white">
-                {shopSettings?.shop_name || "Your Shop"}
+                {shopName || "Your Shop"}
               </h1>
             </div>
           </div>

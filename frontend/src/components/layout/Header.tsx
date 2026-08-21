@@ -59,12 +59,6 @@ export default function Header({
       </button>
 
       <div className="hidden lg:block">
-        {shopName && (
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#B08D57]">
-            {shopName}
-          </p>
-        )}
-
         <h1 className="text-lg font-semibold text-[#18181B]">
           {page.title}
         </h1>
@@ -77,6 +71,15 @@ export default function Header({
       </div>
 
       <div className="ml-auto flex items-center gap-4">
+        {shopName && (
+          <div className="hidden items-center gap-2 rounded-lg border border-[#E8DFD0] bg-[#FAF7F2] px-3 py-1.5 sm:flex">
+            <span className="text-sm">&#128142;</span>
+            <span className="text-sm font-semibold tracking-wide text-[#B08D57]">
+              {shopName}
+            </span>
+          </div>
+        )}
+
         <button className="rounded-lg p-2 text-[#71717A] hover:bg-[#F4F4F5]">
           <Bell size={20} />
         </button>

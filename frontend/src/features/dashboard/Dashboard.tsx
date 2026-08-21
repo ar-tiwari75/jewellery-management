@@ -471,30 +471,48 @@ export default function Dashboard() {
             </p>
           </div>
         ) : (
-          <div className="grid divide-y divide-[#E4E4E7] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-            <MetalRateCard
-              label="Gold 22K"
-              value={
-                metalRate.gold_22k
-              }
-              unit="/ 10g"
-            />
+          <div className="p-5">
+            <div className="mb-3">
+              <p className="text-xs font-medium uppercase tracking-wider text-[#B08D57]">
+                Gold Rates / 10g
+              </p>
+            </div>
 
-            <MetalRateCard
-              label="Gold 24K"
-              value={
-                metalRate.gold_24k
-              }
-              unit="/ 10g"
-            />
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+              {(["24K", "23K", "22K", "20K", "18K", "16K", "14K", "10K"] as const).map((k) => {
+                const val = metalRate[`gold_${k.toLowerCase().replace("K", "k")}` as keyof typeof metalRate];
+                return (
+                  <div key={k} className="flex items-baseline justify-between">
+                    <span className="text-sm text-[#71717A]">{k}</span>
+                    <span className="text-sm font-semibold text-[#18181B]">
+                      ₹{Number(val ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
 
-            <MetalRateCard
-              label="Silver 999"
-              value={
-                metalRate.silver_999
-              }
-              unit="/ kg"
-            />
+            <div className="my-4 border-t border-[#E4E4E7]" />
+
+            <div className="mb-3">
+              <p className="text-xs font-medium uppercase tracking-wider text-[#71717A]">
+                Silver Rates / kg
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-x-6 gap-y-3 sm:grid-cols-6">
+              {(["999", "995", "958", "925", "900", "800"] as const).map((p) => {
+                const val = metalRate[`silver_${p}` as keyof typeof metalRate];
+                return (
+                  <div key={p} className="flex items-baseline justify-between">
+                    <span className="text-sm text-[#71717A]">{p}</span>
+                    <span className="text-sm font-semibold text-[#18181B]">
+                      ₹{Number(val ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </section>

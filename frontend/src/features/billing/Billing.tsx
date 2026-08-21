@@ -73,9 +73,9 @@ interface CalculatedItem {
   grandTotal: number;
 }
 
-const GOLD_PURITIES = ["24K", "22K", "18K"];
+const GOLD_PURITIES = ["24K", "23K", "22K", "20K", "18K", "16K", "14K", "10K"];
 
-const SILVER_PURITIES = ["999"];
+const SILVER_PURITIES = ["999", "995", "958", "925", "900", "800"];
 
 function createEmptyItem(): BillingItem {
   return {
@@ -130,21 +130,47 @@ function getDefaultRate(
   }
 
   if (metalType === "GOLD") {
-    if (purity === "24K") {
-      return metalRate.gold_24k;
+    const colMap: Record<string, number | null> = {
+      "24K": metalRate.gold_24k,
+      "23K": metalRate.gold_23k,
+      "22K": metalRate.gold_22k,
+      "20K": metalRate.gold_20k,
+      "18K": metalRate.gold_18k,
+      "16K": metalRate.gold_16k,
+      "14K": metalRate.gold_14k,
+      "10K": metalRate.gold_10k,
+    };
+
+    const direct = colMap[purity];
+    if (direct != null && direct > 0) return direct;
+
+    const karat = parseInt(purity, 10);
+    if (Number.isFinite(karat) && karat > 0 && karat <= 24 && metalRate.gold_24k > 0) {
+      return Math.round(metalRate.gold_24k * (karat / 24) * 100) / 100;
     }
 
-    if (purity === "22K") {
-      return metalRate.gold_22k;
-    }
-
-    if (purity === "18K") {
-      return metalRate.gold_18k;
-    }
+    return 0;
   }
 
   if (metalType === "SILVER") {
-    return metalRate.silver_999;
+    const colMap: Record<string, number | null> = {
+      "999": metalRate.silver_999,
+      "995": metalRate.silver_995,
+      "958": metalRate.silver_958,
+      "925": metalRate.silver_925,
+      "900": metalRate.silver_900,
+      "800": metalRate.silver_800,
+    };
+
+    const direct = colMap[purity];
+    if (direct != null && direct > 0) return direct;
+
+    const purityNum = parseInt(purity, 10);
+    if (Number.isFinite(purityNum) && purityNum > 0 && metalRate.silver_999 > 0) {
+      return Math.round(metalRate.silver_999 * (purityNum / 999) * 100) / 100;
+    }
+
+    return 0;
   }
 
   return 0;

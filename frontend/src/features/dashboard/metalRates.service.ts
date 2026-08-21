@@ -6,10 +6,20 @@ export interface DailyMetalRate {
   city: string;
 
   gold_24k: number;
+  gold_23k: number | null;
   gold_22k: number;
+  gold_20k: number | null;
   gold_18k: number;
+  gold_16k: number | null;
+  gold_14k: number | null;
+  gold_10k: number | null;
 
   silver_999: number;
+  silver_995: number | null;
+  silver_958: number | null;
+  silver_925: number | null;
+  silver_900: number | null;
+  silver_800: number | null;
 
   gold_unit: string;
   silver_unit: string;
@@ -20,20 +30,7 @@ export interface DailyMetalRate {
 export async function getLatestMetalRate(): Promise<DailyMetalRate | null> {
   const { data, error } = await supabase
     .from("daily_metal_rates")
-    .select(
-      `
-        id,
-        rate_date,
-        city,
-        gold_24k,
-        gold_22k,
-        gold_18k,
-        silver_999,
-        gold_unit,
-        silver_unit,
-        fetched_at
-      `,
-    )
+    .select("*")
     .eq("city", "Mumbai")
     .order("rate_date", { ascending: false })
     .limit(1)

@@ -59,10 +59,20 @@ Deno.serve(async (req) => {
             city: rate.city,
 
             gold_24k: rate.gold24k,
+            gold_23k: rate.gold23k,
             gold_22k: rate.gold22k,
+            gold_20k: rate.gold20k,
             gold_18k: rate.gold18k,
+            gold_16k: rate.gold16k,
+            gold_14k: rate.gold14k,
+            gold_10k: rate.gold10k,
 
             silver_999: rate.silver999,
+            silver_995: rate.silver995,
+            silver_958: rate.silver958,
+            silver_925: rate.silver925,
+            silver_900: rate.silver900,
+            silver_800: rate.silver800,
 
             gold_unit: rate.goldUnit,
             silver_unit: rate.silverUnit,

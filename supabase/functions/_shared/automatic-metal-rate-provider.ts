@@ -202,6 +202,16 @@ function validateMetalRate(
     rate.gold22k,
     rate.gold18k,
     rate.silver999,
+    rate.gold23k,
+    rate.gold20k,
+    rate.gold16k,
+    rate.gold14k,
+    rate.gold10k,
+    rate.silver995,
+    rate.silver958,
+    rate.silver925,
+    rate.silver900,
+    rate.silver800,
   ];
 
   if (
@@ -252,12 +262,22 @@ export class AutomaticMetalRateProvider
       // Gold provider value = ₹ / gram
       // Application value = ₹ / 10g
       gold24k: gold24k * 10,
+      gold23k: gold24k * 10 * (23 / 24),
       gold22k: gold22k * 10,
+      gold20k: gold24k * 10 * (20 / 24),
       gold18k: gold18k * 10,
+      gold16k: gold24k * 10 * (16 / 24),
+      gold14k: gold24k * 10 * (14 / 24),
+      gold10k: gold24k * 10 * (10 / 24),
 
       // Silver provider value = ₹ / gram
       // Application value = ₹ / kg
       silver999: silverPerGram * 1000,
+      silver995: silverPerGram * 1000 * (995 / 999),
+      silver958: silverPerGram * 1000 * (958 / 999),
+      silver925: silverPerGram * 1000 * (925 / 999),
+      silver900: silverPerGram * 1000 * (900 / 999),
+      silver800: silverPerGram * 1000 * (800 / 999),
 
       goldUnit: "10g",
       silverUnit: "1kg",

@@ -166,6 +166,15 @@ export async function saveShopSettings(
   const existing =
     await getShopSettings();
 
+  /*
+   * Keep shops.name in sync with shop_settings.shop_name
+   * so the Header and Dashboard always show the current name.
+   */
+  await supabase
+    .from("shops")
+    .update({ name: shopName })
+    .eq("id", shopId);
+
   const payload = {
     shop_id: shopId,
 

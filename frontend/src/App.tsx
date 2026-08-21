@@ -11,6 +11,7 @@ import InvoicePreview from "./features/billing/InvoicePreview";
 import InvoiceHistory from "./features/billing/InvoiceHistory";
 import UserManagement from "./features/users/UserManagement";
 import SetPassword from "./features/auth/SetPassword";
+import Reports from "./features/reports/Reports";
 
 function App() {
   const { session, loading } = useAuth();
@@ -64,11 +65,7 @@ function App() {
 
         <Route
           path="/reports"
-          element={
-            <div className="p-4">
-              Reports coming next...
-            </div>
-          }
+          element={<Reports />}
         />
 
         <Route

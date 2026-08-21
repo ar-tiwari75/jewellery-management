@@ -322,13 +322,13 @@ export default function Dashboard() {
     let mounted = true;
 
     supabase
-      .from("shop_settings")
-      .select("shop_name")
-      .eq("shop_id", profile.shop_id)
+      .from("shops")
+      .select("name")
+      .eq("id", profile.shop_id)
       .maybeSingle()
       .then(({ data }) => {
-        if (mounted && data?.shop_name) {
-          setShopName(data.shop_name);
+        if (mounted && data?.name) {
+          setShopName(data.name);
         }
       });
 
@@ -378,7 +378,7 @@ export default function Dashboard() {
               </p>
 
               <h1 className="mt-0.5 text-2xl font-bold tracking-wide text-white">
-                {shopName || "Your Shop"}
+                {shopName || "Shop"}
               </h1>
             </div>
           </div>

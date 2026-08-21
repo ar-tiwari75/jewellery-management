@@ -32,12 +32,12 @@ export default function Header({
     if (!profile?.shop_id) return;
 
     supabase
-      .from("shop_settings")
-      .select("shop_name")
-      .eq("shop_id", profile.shop_id)
+      .from("shops")
+      .select("name")
+      .eq("id", profile.shop_id)
       .maybeSingle()
       .then(({ data }) => {
-        if (data?.shop_name) setShopName(data.shop_name);
+        if (data?.name) setShopName(data.name);
       });
   }, [profile?.shop_id]);
 

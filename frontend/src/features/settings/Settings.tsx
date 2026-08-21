@@ -17,6 +17,7 @@ import {
 import {
   useSubscription,
 } from "../../contexts/SubscriptionContext";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface SettingsForm {
   shop_name: string;
@@ -68,6 +69,8 @@ function settingsToForm(
 export default function Settings() {
   const { subscription } =
     useSubscription();
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === "ADMIN";
 
   const [form, setForm] =
     useState<SettingsForm>(
@@ -216,6 +219,13 @@ export default function Settings() {
         </div>
       )}
 
+      {!isAdmin && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-700">
+          You have view-only access. Contact an
+          admin to update shop settings.
+        </div>
+      )}
+
       {/* Subscription info */}
       {subscription && (
         <section className="rounded-xl border border-[#E4E4E7] bg-white">
@@ -335,7 +345,8 @@ export default function Settings() {
                 }
                 placeholder="Your Jewellery Shop"
                 required
-                className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57]"
+                disabled={!isAdmin}
+                className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed disabled:bg-[#F4F4F5] disabled:text-[#71717A]"
               />
             </div>
 
@@ -344,18 +355,19 @@ export default function Settings() {
                 GSTIN
               </label>
 
-              <input
-                type="text"
-                value={form.gstin}
-                onChange={(event) =>
-                  updateField(
-                    "gstin",
-                    event.target.value,
-                  )
-                }
-                placeholder="22AAAAA0000A1Z5"
-                className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm uppercase outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57]"
-              />
+                <input
+                  type="text"
+                  value={form.gstin}
+                  onChange={(event) =>
+                    updateField(
+                      "gstin",
+                      event.target.value,
+                    )
+                  }
+                  placeholder="22AAAAA0000A1Z5"
+                  disabled={!isAdmin}
+                  className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm uppercase outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed disabled:bg-[#F4F4F5] disabled:text-[#71717A]"
+                />
             </div>
 
             <div>
@@ -379,7 +391,8 @@ export default function Settings() {
                     )
                   }
                   placeholder="9876543210"
-                  className="w-full rounded-lg border border-[#D4D4D8] py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57]"
+                  disabled={!isAdmin}
+                  className="w-full rounded-lg border border-[#D4D4D8] py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed disabled:bg-[#F4F4F5] disabled:text-[#71717A]"
                 />
               </div>
             </div>
@@ -405,7 +418,8 @@ export default function Settings() {
                   }
                   rows={2}
                   placeholder="Shop address"
-                  className="w-full resize-none rounded-lg border border-[#D4D4D8] py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57]"
+                  disabled={!isAdmin}
+                  className="w-full resize-none rounded-lg border border-[#D4D4D8] py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed disabled:bg-[#F4F4F5] disabled:text-[#71717A]"
                 />
               </div>
             </div>
@@ -415,18 +429,19 @@ export default function Settings() {
                 City
               </label>
 
-              <input
-                type="text"
-                value={form.city}
-                onChange={(event) =>
-                  updateField(
-                    "city",
-                    event.target.value,
-                  )
-                }
-                placeholder="Mumbai"
-                className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57]"
-              />
+                <input
+                  type="text"
+                  value={form.city}
+                  onChange={(event) =>
+                    updateField(
+                      "city",
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Mumbai"
+                  disabled={!isAdmin}
+                  className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed disabled:bg-[#F4F4F5] disabled:text-[#71717A]"
+                />
             </div>
 
             <div>
@@ -450,7 +465,8 @@ export default function Settings() {
                     )
                   }
                   placeholder="shop@example.com"
-                  className="w-full rounded-lg border border-[#D4D4D8] py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57]"
+                  disabled={!isAdmin}
+                  className="w-full rounded-lg border border-[#D4D4D8] py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed disabled:bg-[#F4F4F5] disabled:text-[#71717A]"
                 />
               </div>
             </div>
@@ -485,7 +501,8 @@ export default function Settings() {
                 )
               }
               placeholder="https://..."
-              className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57]"
+              disabled={!isAdmin}
+              className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed disabled:bg-[#F4F4F5] disabled:text-[#71717A]"
             />
 
             <p className="mt-2 text-xs leading-5 text-[#71717A]">
@@ -496,19 +513,21 @@ export default function Settings() {
           </div>
         </section>
 
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={saving}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#B08D57] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#9C7B4C] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Save size={17} />
+        {isAdmin && (
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#B08D57] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#9C7B4C] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Save size={17} />
 
-            {saving
-              ? "Saving..."
-              : "Save Settings"}
-          </button>
-        </div>
+              {saving
+                ? "Saving..."
+                : "Save Settings"}
+            </button>
+          </div>
+        )}
       </form>
     </div>
   );

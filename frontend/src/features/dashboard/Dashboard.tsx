@@ -27,40 +27,6 @@ import {
 
 import { useAuth } from "../../contexts/AuthContext";
 
-interface MetalRateCardProps {
-  label: string;
-  value: number;
-  unit: string;
-}
-
-function MetalRateCard({
-  label,
-  value,
-  unit,
-}: MetalRateCardProps) {
-  return (
-    <div className="p-5">
-      <p className="text-sm text-[#71717A]">
-        {label}
-      </p>
-
-      <div className="mt-3 flex items-baseline gap-2">
-        <span className="text-2xl font-semibold text-[#18181B]">
-          ₹
-          {value.toLocaleString("en-IN", {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 2,
-          })}
-        </span>
-
-        <span className="text-xs text-[#71717A]">
-          {unit}
-        </span>
-      </div>
-    </div>
-  );
-}
-
 function formatUpdatedTime(
   metalRate: DailyMetalRate,
 ): string {

@@ -11,7 +11,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from "recharts";
 import {
@@ -204,7 +203,7 @@ export default function Reports() {
                 />
                 <YAxis tick={{ fontSize: 11, fill: "#71717A" }} tickFormatter={(v) => formatINR(v)} />
                 <Tooltip
-                  formatter={(v: number) => [`₹${v.toLocaleString("en-IN")}`, "Revenue"]}
+                  formatter={(v) => [`₹${Number(v ?? 0).toLocaleString("en-IN")}`, "Revenue"]}
                   contentStyle={{ borderRadius: 8, border: "1px solid #E4E4E7", fontSize: 12 }}
                 />
                 <Bar dataKey="revenue" fill={GOLD} radius={[4, 4, 0, 0]} />
@@ -232,7 +231,7 @@ export default function Reports() {
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#71717A" }} />
                   <YAxis tick={{ fontSize: 11, fill: "#71717A" }} tickFormatter={(v) => formatINR(v)} />
                   <Tooltip
-                    formatter={(v: number) => [`₹${v.toLocaleString("en-IN")}`, "Revenue"]}
+                    formatter={(v) => [`₹${Number(v ?? 0).toLocaleString("en-IN")}`, "Revenue"]}
                     contentStyle={{ borderRadius: 8, border: "1px solid #E4E4E7", fontSize: 12 }}
                   />
                   <Line type="monotone" dataKey="revenue" stroke={GOLD} strokeWidth={2} dot={{ fill: GOLD, r: 3 }} />
@@ -258,7 +257,7 @@ export default function Reports() {
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#71717A" }} />
                   <YAxis tick={{ fontSize: 11, fill: "#71717A" }} tickFormatter={(v) => formatINR(v)} />
                   <Tooltip
-                    formatter={(v: number) => [`₹${v.toLocaleString("en-IN")}`, "GST"]}
+                    formatter={(v) => [`₹${Number(v ?? 0).toLocaleString("en-IN")}`, "GST"]}
                     contentStyle={{ borderRadius: 8, border: "1px solid #E4E4E7", fontSize: 12 }}
                   />
                   <Bar dataKey="gst" fill="#71717A" radius={[4, 4, 0, 0]} />
@@ -291,14 +290,16 @@ export default function Reports() {
                     outerRadius={100}
                     dataKey="revenue"
                     nameKey="metal"
-                    label={({ metal, percent }) => `${metal} ${(percent * 100).toFixed(0)}%`}
+                    label={({ metal, percent }: { metal?: string; percent?: number }) =>
+                    `${metal ?? ""} ${((percent ?? 0) * 100).toFixed(0)}%`
+                  }
                   >
                     {metalSplit.map((_, i) => (
                       <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(v: number) => [`₹${v.toLocaleString("en-IN")}`, "Revenue"]}
+                    formatter={(v) => [`₹${Number(v ?? 0).toLocaleString("en-IN")}`, "Revenue"]}
                     contentStyle={{ borderRadius: 8, border: "1px solid #E4E4E7", fontSize: 12 }}
                   />
                 </PieChart>
@@ -327,7 +328,7 @@ export default function Reports() {
                   />
                   <YAxis tick={{ fontSize: 11, fill: "#71717A" }} allowDecimals={false} />
                   <Tooltip
-                    formatter={(v: number) => [v, "Invoices"]}
+                    formatter={(v) => [Number(v ?? 0), "Invoices"]}
                     contentStyle={{ borderRadius: 8, border: "1px solid #E4E4E7", fontSize: 12 }}
                   />
                   <Bar dataKey="invoices" fill="#D4A843" radius={[4, 4, 0, 0]} />
@@ -361,7 +362,7 @@ export default function Reports() {
                     width={100}
                   />
                   <Tooltip
-                    formatter={(v: number) => [`₹${v.toLocaleString("en-IN")}`, "Revenue"]}
+                    formatter={(v) => [`₹${Number(v ?? 0).toLocaleString("en-IN")}`, "Revenue"]}
                     contentStyle={{ borderRadius: 8, border: "1px solid #E4E4E7", fontSize: 12 }}
                   />
                   <Bar dataKey="revenue" fill={GOLD} radius={[0, 4, 4, 0]} />
@@ -387,7 +388,7 @@ export default function Reports() {
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#71717A" }} />
                   <YAxis tick={{ fontSize: 11, fill: "#71717A" }} tickFormatter={(v) => formatINR(v)} />
                   <Tooltip
-                    formatter={(v: number) => [`₹${v.toLocaleString("en-IN")}`, "Revenue"]}
+                    formatter={(v) => [`₹${Number(v ?? 0).toLocaleString("en-IN")}`, "Revenue"]}
                     contentStyle={{ borderRadius: 8, border: "1px solid #E4E4E7", fontSize: 12 }}
                   />
                   <Bar dataKey="revenue" fill="#52525B" radius={[4, 4, 0, 0]} />

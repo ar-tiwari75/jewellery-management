@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Calculator,
   Lock,
   Plus,
+  Search,
   Trash2,
   UserRound,
   Receipt,
   Save,
+  X,
 } from "lucide-react";
 
 import { supabase } from "../../lib/supabase";
@@ -274,6 +276,14 @@ export default function Billing() {
   const [customerId, setCustomerId] =
     useState("");
 
+  const [customerSearch, setCustomerSearch] =
+    useState("");
+
+  const [customerDropdownOpen, setCustomerDropdownOpen] =
+    useState(false);
+
+  const customerDropdownRef = useRef<HTMLDivElement>(null);
+
   const [metalRate, setMetalRate] =
     useState<DailyMetalRate | null>(null);
 
@@ -373,6 +383,20 @@ export default function Billing() {
   }, []);
 
   /*
+   * Close customer dropdown when clicking outside.
+   */
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (customerDropdownRef.current && !customerDropdownRef.current.contains(event.target as Node)) {
+        setCustomerDropdownOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  /*
    * When the first item loads and the market rate
    * is available, populate its rate.
    */
@@ -432,6 +456,16 @@ export default function Billing() {
             item !== null,
         );
     }, [items, gst]);
+
+  const filteredCustomers = useMemo(() => {
+    if (!customerSearch.trim()) return customers;
+    const query = customerSearch.toLowerCase();
+    return customers.filter(
+      (c) =>
+        c.full_name.toLowerCase().includes(query) ||
+        c.phone?.toLowerCase().includes(query),
+    );
+  }, [customers, customerSearch]);
 
   const invoiceTotals = useMemo(() => {
     return calculatedItems.reduce(
@@ -766,40 +800,77 @@ export default function Billing() {
                 Customer
               </label>
 
-              <select
-                value={customerId}
-                onChange={(event) =>
-                  setCustomerId(
-                    event.target.value,
-                  )
-                }
-                disabled={
-                  customersLoading || readOnly
-                }
-                className="mt-2 w-full rounded-lg border border-[#D4D4D8] bg-white px-3 py-2.5 text-sm text-[#18181B] outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <option value="">
-                  {customersLoading
-                    ? "Loading customers..."
-                    : "Select customer"}
-                </option>
-
-                {customers.map(
-                  (customer) => (
-                    <option
-                      key={customer.id}
-                      value={
-                        customer.id
-                      }
+              <div className="relative mt-2" ref={customerDropdownRef}>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#71717A]" size={18} />
+                  <input
+                    type="text"
+                    value={customerSearch}
+                    onChange={(e) => {
+                      setCustomerSearch(e.target.value);
+                      setCustomerDropdownOpen(true);
+                    }}
+                    onFocus={() => setCustomerDropdownOpen(true)}
+                    placeholder="Search by name or phone..."
+                    disabled={customersLoading || readOnly}
+                    className="w-full rounded-lg border border-[#D4D4D8] bg-white pl-10 pr-10 py-2.5 text-sm text-[#18181B] outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  {customerSearch && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomerSearch("");
+                        setCustomerId("");
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#71717A] hover:text-[#18181A]"
                     >
-                      {customer.full_name}
-                      {customer.phone
-                        ? ` — ${customer.phone}`
-                        : ""}
-                    </option>
-                  ),
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+
+                {customerDropdownOpen && !customersLoading && filteredCustomers.length > 0 && (
+                  <div
+                    className="absolute z-10 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-[#E4E4E7] bg-white shadow-lg"
+                    role="listbox"
+                  >
+                    {filteredCustomers.map((customer) => (
+                      <button
+                        key={customer.id}
+                        type="button"
+                        onClick={() => {
+                          setCustomerId(customer.id);
+                          setCustomerSearch(customer.full_name + (customer.phone ? ` — ${customer.phone}` : ""));
+                          setCustomerDropdownOpen(false);
+                        }}
+                        className={`w-full px-3 py-2.5 text-sm text-left transition-colors ${
+                          customerId === customer.id
+                            ? "bg-[#F5EFE6] text-[#B08D57]"
+                            : "text-[#18181B] hover:bg-[#FAFAFA]"
+                        }`}
+                        role="option"
+                      >
+                        <div className="font-medium">{customer.full_name}</div>
+                        {customer.phone && (
+                          <div className="text-xs text-[#71717A]">{customer.phone}</div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 )}
-              </select>
+
+                {customerDropdownOpen && !customersLoading && filteredCustomers.length === 0 && customers.length > 0 && (
+                  <div className="absolute z-10 mt-1 w-full rounded-lg border border-[#E4E4E7] bg-white shadow-lg px-3 py-2.5 text-sm text-[#71717A]">
+                    No customers match your search.
+                  </div>
+                )}
+
+                {customersLoading && (
+                  <div className="absolute z-10 mt-1 w-full rounded-lg border border-[#E4E4E7] bg-white shadow-lg px-3 py-2.5 text-sm text-[#71717A]">
+                    Loading customers...
+                  </div>
+                )}
+              </div>
             </div>
           </section>
 

@@ -169,7 +169,8 @@ export async function listInventoryItems(params?: {
   if (params?.category) query = query.eq("category", params.category);
   if (params?.metal_type) query = query.eq("metal_type", params.metal_type);
   if (params?.search) {
-    query = query.or(`sku.ilike.%${params.search}%,name.ilike.%${params.search}%`);
+    const sanitized = params.search.replace(/[%_]/g, (m) => `\\${m}`);
+    query = query.or(`sku.ilike.%${sanitized}%,name.ilike.%${sanitized}%`);
   }
 
   query = query.order("updated_at", { ascending: false }).limit(limit + 1);
@@ -586,12 +587,13 @@ export async function searchInventoryForBilling(query: string): Promise<Array<{
   current_qty: number;
 }>> {
   const shopId = await getShopId();
+  const sanitized = query.replace(/[%_]/g, (m) => `\\${m}`);
   const { data, error } = await supabase
     .from("inventory_items")
     .select("id, sku, name, category, metal_type, purity, weight_g, sale_rate")
     .eq("shop_id", shopId)
     .eq("is_active", true)
-    .or(`sku.ilike.%${query}%,name.ilike.%${query}%`)
+    .or(`sku.ilike.%${sanitized}%,name.ilike.%${sanitized}%`)
     .order("name")
     .limit(20);
 

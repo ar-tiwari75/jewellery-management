@@ -14,6 +14,14 @@ import SetPassword from "./features/auth/SetPassword";
 import Reports from "./features/reports/Reports";
 import Inventory from "./features/inventory/Inventory";
 
+function RequireRole({ allowedRoles, children }: { allowedRoles: string[]; children: React.ReactNode }) {
+  const { profile } = useAuth();
+  if (!allowedRoles.includes(profile?.role ?? "")) {
+    return <Navigate to="/" replace />;
+  }
+  return <>{children}</>;
+}
+
 function App() {
   const { session, loading } = useAuth();
   const location = useLocation();
@@ -44,43 +52,71 @@ function App() {
         <Route
           path="/customers"
           element={
-            <Customers />
+            <RequireRole allowedRoles={["ADMIN", "MANAGER", "STAFF"]}>
+              <Customers />
+            </RequireRole>
           }
         />
 
         <Route
           path="/inventory"
-          element={<Inventory />}
+          element={
+            <RequireRole allowedRoles={["ADMIN", "MANAGER", "STAFF"]}>
+              <Inventory />
+            </RequireRole>
+          }
         />
 
         <Route
           path="/billing"
           element={
+            <RequireRole allowedRoles={["ADMIN", "MANAGER", "STAFF"]}>
               <Billing />
+            </RequireRole>
           }
         />
 
         <Route
           path="/reports"
-          element={<Reports />}
+          element={
+            <RequireRole allowedRoles={["ADMIN", "MANAGER"]}>
+              <Reports />
+            </RequireRole>
+          }
         />
 
         <Route
             path="/settings"
-            element={<Settings />}
+            element={
+              <RequireRole allowedRoles={["ADMIN"]}>
+                <Settings />
+              </RequireRole>
+            }
         />
         <Route
           path="/users"
-          element={<UserManagement />}
+          element={
+            <RequireRole allowedRoles={["ADMIN"]}>
+              <UserManagement />
+            </RequireRole>
+          }
         />
 
         <Route
             path="/billing/invoice/:invoiceId"
-            element={<InvoicePreview />}
+            element={
+              <RequireRole allowedRoles={["ADMIN", "MANAGER", "STAFF"]}>
+                <InvoicePreview />
+              </RequireRole>
+            }
         />
         <Route
           path="/billing/invoices"
-          element={<InvoiceHistory />}
+          element={
+            <RequireRole allowedRoles={["ADMIN", "MANAGER", "STAFF"]}>
+              <InvoiceHistory />
+            </RequireRole>
+          }
         />
 
         <Route

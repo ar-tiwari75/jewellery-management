@@ -2,10 +2,13 @@ import { createClient } from "@supabase/supabase-js";
 
 import { AutomaticMetalRateProvider } from "../_shared/automatic-metal-rate-provider.ts";
 
+const ALLOWED_ORIGIN = "https://jewellery-management-xi.vercel.app";
+
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Credentials": "true",
 };
 
 Deno.serve(async (req) => {
@@ -22,6 +25,11 @@ Deno.serve(async (req) => {
       },
       405,
     );
+  }
+
+  const authorization = req.headers.get("Authorization");
+  if (!authorization?.startsWith("Bearer ")) {
+    return jsonResponse({ error: "You must be authenticated." }, 401);
   }
 
   try {
@@ -42,7 +50,18 @@ Deno.serve(async (req) => {
     const supabase = createClient(
       supabaseUrl,
       serviceRoleKey,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      },
     );
+
+    const { data: authData, error: authError } = await supabase.auth.getUser(authorization.slice("Bearer ".length));
+    if (authError || !authData.user) {
+      return jsonResponse({ error: `Your session is invalid: ${authError?.message || "User not found"}` }, 401);
+    }
 
     const provider =
       new AutomaticMetalRateProvider();

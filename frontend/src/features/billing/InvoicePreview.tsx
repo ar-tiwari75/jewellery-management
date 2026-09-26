@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Printer, Download, Save } from "lucide-react";
+import { ArrowLeft, Download } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
@@ -81,10 +81,6 @@ export default function InvoicePreview() {
     };
   }, [invoiceId]);
 
-  function handlePrint() {
-    window.print();
-  }
-
   async function handleDownloadPdf() {
     if (!invoiceRef.current || !data) return;
 
@@ -163,14 +159,6 @@ export default function InvoicePreview() {
         </button>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handlePrint}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#B08D57] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#9C7B4C]"
-          >
-            <Printer size={16} />
-            Print
-          </button>
           <button
             type="button"
             onClick={handleDownloadPdf}

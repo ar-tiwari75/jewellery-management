@@ -368,8 +368,11 @@ export default function Inventory() {
     if (!itemForm.name.trim()) errors.name = "Name is required";
     if (itemForm.weight_g <= 0) errors.weight_g = "Weight must be > 0";
     if (itemForm.cost_rate <= 0) errors.cost_rate = "Cost rate must be > 0";
-    if (itemForm.sale_rate <= 0) errors.sale_rate = "Sale rate must be > 0";
-    if (itemForm.sale_rate < itemForm.cost_rate) errors.sale_rate = "Sale rate should be >= cost rate";
+
+    // sale_rate is optional (auto 10% markup from cost_rate if 0 or not provided)
+    if (itemForm.sale_rate !== 0 && itemForm.sale_rate < itemForm.cost_rate) {
+      errors.sale_rate = "Sale rate should be >= cost rate";
+    }
 
     if (Object.keys(errors).length) {
       setItemFormErrors(errors);
@@ -714,18 +717,18 @@ export default function Inventory() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-[#18181B]">Sale Rate <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-[#18181B]">Sale Rate</label>
                   <input
                     type="number"
                     step="0.01"
                     min="0.01"
                     value={itemForm.sale_rate}
                     onChange={(e) => setItemForm((prev) => ({ ...prev, sale_rate: Number(e.target.value) }))}
-                    placeholder="64350.00"
+                    placeholder={`Auto: cost × 1.10 = ₹${(itemForm.cost_rate * 1.1).toFixed(2)}`}
                     disabled={itemFormSaving}
                     className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed"
                   />
-                  <p className="mt-1 text-xs text-[#71717A]">Per 10g (Gold) / Per kg (Silver)</p>
+                  <p className="mt-1 text-xs text-[#71717A]">Per 10g (Gold) / Per kg (Silver) — auto 10% markup if left blank</p>
                   {itemFormErrors.sale_rate && <p className="mt-1 text-sm text-red-600">{itemFormErrors.sale_rate}</p>}
                 </div>
 

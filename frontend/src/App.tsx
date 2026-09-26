@@ -12,6 +12,7 @@ import InvoiceHistory from "./features/billing/InvoiceHistory";
 import UserManagement from "./features/users/UserManagement";
 import SetPassword from "./features/auth/SetPassword";
 import Reports from "./features/reports/Reports";
+import Inventory from "./features/inventory/Inventory";
 
 function App() {
   const { session, loading } = useAuth();
@@ -49,11 +50,7 @@ function App() {
 
         <Route
           path="/inventory"
-          element={
-            <div className="p-4">
-              Inventory coming next...
-            </div>
-          }
+          element={<Inventory />}
         />
 
         <Route

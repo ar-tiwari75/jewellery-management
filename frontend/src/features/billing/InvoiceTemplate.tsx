@@ -47,7 +47,8 @@ function formatMetal(
 
 export default function InvoiceTemplate({
   data,
-}: InvoiceTemplateProps) {
+  showWatermark = true,
+}: InvoiceTemplateProps & { showWatermark?: boolean }) {
   const {
     invoice,
     shop,
@@ -56,8 +57,20 @@ export default function InvoiceTemplate({
   const customer =
     invoice.customer;
 
-  return (
-    <div className="mx-auto w-full max-w-[794px] bg-white text-zinc-900 shadow-sm print:max-w-none print:shadow-none">
+  // Watermark text: combine shop name + GSTIN if available
+  const watermarkText = shop.gstin
+    ? `${shop.shop_name} • ${shop.gstin}`
+    : shop.shop_name;
+
+return (
+    <div className="relative mx-auto w-full max-w-[794px] bg-white text-zinc-900 shadow-sm print:max-w-none print:shadow-none">
+      {showWatermark && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center -z-10" style={{ opacity: 0.06 }}>
+          <div className="text-7xl font-bold text-zinc-900 transform rotate-[-25deg] whitespace-nowrap select-none tracking-wider">
+            {watermarkText}
+          </div>
+        </div>
+      )}
       {/* Shop Header */}
       <header className="border-b-2 border-zinc-900 px-8 py-7">
         <div className="flex items-start justify-between gap-6">

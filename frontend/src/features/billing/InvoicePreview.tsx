@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
-import { ArrowLeft, Printer } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, Printer, Download, Save } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
 
 import InvoiceTemplate from "./InvoiceTemplate";
 import {
@@ -14,6 +16,7 @@ export default function InvoicePreview() {
   }>();
 
   const navigate = useNavigate();
+  const invoiceRef = useRef<HTMLDivElement>(null);
 
   const [data, setData] =
     useState<InvoiceDocumentData | null>(null);
@@ -23,6 +26,9 @@ export default function InvoicePreview() {
 
   const [error, setError] =
     useState<string | null>(null);
+
+  const [generatingPdf, setGeneratingPdf] =
+    useState(false);
 
   useEffect(() => {
     if (!invoiceId) {
@@ -79,6 +85,40 @@ export default function InvoicePreview() {
     window.print();
   }
 
+  async function handleDownloadPdf() {
+    if (!invoiceRef.current || !data) return;
+
+    setGeneratingPdf(true);
+
+    try {
+      const canvas = await html2canvas(invoiceRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`${data.invoice.invoice_number}.pdf`);
+    } catch (error) {
+      console.error("PDF generation failed:", error);
+      alert("Failed to generate PDF. Please try Print > Save as PDF.");
+    } finally {
+      setGeneratingPdf(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-64 items-center justify-center">
@@ -122,19 +162,30 @@ export default function InvoicePreview() {
           Back to Billing
         </button>
 
-        <button
-          type="button"
-          onClick={handlePrint}
-          className="inline-flex items-center gap-2 rounded-lg bg-[#B08D57] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#9C7B4C]"
-        >
-          <Printer size={16} />
-          Print / Save PDF
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="inline-flex items-center gap-2 rounded-lg bg-[#B08D57] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#9C7B4C]"
+          >
+            <Printer size={16} />
+            Print
+          </button>
+          <button
+            type="button"
+            onClick={handleDownloadPdf}
+            disabled={generatingPdf}
+            className="inline-flex items-center gap-2 rounded-lg bg-[#B08D57] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#9C7B4C] disabled:opacity-50"
+          >
+            <Download size={16} />
+            {generatingPdf ? "Generating..." : "Download PDF"}
+          </button>
+        </div>
       </div>
 
       {/* Invoice */}
-      <div className="invoice-print-area">
-        <InvoiceTemplate data={data} />
+      <div className="invoice-print-area" ref={invoiceRef}>
+        <InvoiceTemplate data={data} showWatermark={true} />
       </div>
     </div>
   );

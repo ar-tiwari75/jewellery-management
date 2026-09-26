@@ -8,18 +8,26 @@ import {
   ArrowUpDown,
   Edit,
   Trash2,
+  X,
+  Save,
 } from "lucide-react";
 import {
   listInventoryItems,
+  getInventoryItem,
+  createInventoryItem,
+  updateInventoryItem,
   deleteInventoryItem,
   getInventorySummary,
   type ItemWithStock,
+  type InventoryItemInput,
   type InventoryCategory,
   type MetalType,
 } from "./inventory.service";
 
 const CATEGORIES: InventoryCategory[] = ["RING", "NECKLACE", "BANGLE", "CHAIN", "COIN", "OTHER"];
 const METAL_TYPES: MetalType[] = ["GOLD", "SILVER"];
+const GOLD_PURITIES = ["24K", "23K", "22K", "20K", "18K", "16K", "14K", "10K"];
+const SILVER_PURITIES = ["999", "995", "958", "925", "900", "800"];
 
 function formatINR(n: number) {
   if (n >= 10000000) return `${(n / 10000000).toFixed(1)}Cr`;
@@ -80,6 +88,24 @@ export default function Inventory() {
     by_metal: Array<{ metal_type: string; items: number; stock_qty: number; stock_value: number }>;
   } | null>(null);
 
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<ItemWithStock | null>(null);
+  const [itemForm, setItemForm] = useState<InventoryItemInput>({
+    sku: "",
+    name: "",
+    category: "RING",
+    metal_type: "GOLD",
+    purity: "22K",
+    weight_g: 0,
+    cost_rate: 0,
+    sale_rate: 0,
+    min_stock_qty: 0,
+    location: "",
+    is_active: true,
+  });
+  const [itemFormErrors, setItemFormErrors] = useState<Partial<Record<keyof InventoryItemInput, string>>>({});
+  const [itemFormSaving, setItemFormSaving] = useState(false);
+
   const loadSummary = useCallback(async () => {
     try {
       const s = await getInventorySummary();
@@ -124,6 +150,84 @@ export default function Inventory() {
       loadSummary();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to delete");
+    }
+  };
+
+  const getPurityOptions = (metal: MetalType) =>
+    metal === "GOLD" ? GOLD_PURITIES : SILVER_PURITIES;
+
+  const handleItemSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setItemFormErrors({});
+
+    const errors: Partial<Record<keyof InventoryItemInput, string>> = {};
+    if (!itemForm.sku.trim()) errors.sku = "SKU is required";
+    if (!itemForm.name.trim()) errors.name = "Name is required";
+    if (itemForm.weight_g <= 0) errors.weight_g = "Weight must be > 0";
+    if (itemForm.cost_rate <= 0) errors.cost_rate = "Cost rate must be > 0";
+    if (itemForm.sale_rate <= 0) errors.sale_rate = "Sale rate must be > 0";
+    if (itemForm.sale_rate < itemForm.cost_rate) errors.sale_rate = "Sale rate should be >= cost rate";
+
+    if (Object.keys(errors).length) {
+      setItemFormErrors(errors);
+      return;
+    }
+
+    try {
+      setItemFormSaving(true);
+      if (editingItem) {
+        await updateInventoryItem(editingItem.id, itemForm);
+      } else {
+        await createInventoryItem(itemForm);
+      }
+      setModalOpen(false);
+      loadItems(true);
+      loadSummary();
+    } catch (e) {
+      setItemFormErrors({ sku: e instanceof Error ? e.message : "Failed to save" });
+    } finally {
+      setItemFormSaving(false);
+    }
+  };
+
+  const openAddItem = () => {
+    setEditingItem(null);
+    setItemForm({
+      sku: "",
+      name: "",
+      category: "RING",
+      metal_type: "GOLD",
+      purity: "22K",
+      weight_g: 0,
+      cost_rate: 0,
+      sale_rate: 0,
+      min_stock_qty: 0,
+      location: "",
+      is_active: true,
+    });
+    setItemFormErrors({});
+    setModalOpen(true);
+  };
+
+  const openEditItem = async (item: ItemWithStock) => {
+    const full = await getInventoryItem(item.id);
+    if (full) {
+      setEditingItem(full);
+      setItemForm({
+        sku: full.sku,
+        name: full.name,
+        category: full.category,
+        metal_type: full.metal_type,
+        purity: full.purity,
+        weight_g: full.weight_g,
+        cost_rate: full.cost_rate,
+        sale_rate: full.sale_rate,
+        min_stock_qty: full.min_stock_qty,
+        location: full.location ?? "",
+        is_active: full.is_active,
+      });
+      setItemFormErrors({});
+      setModalOpen(true);
     }
   };
 
@@ -209,7 +313,7 @@ export default function Inventory() {
             <Package size={20} className="text-[#B08D57]" />
             <h2 className="font-semibold text-[#18181B]">Inventory Items</h2>
           </div>
-          <button disabled className="inline-flex items-center gap-2 rounded-lg bg-[#B08D57] px-4 py-2 text-sm font-medium text-white opacity-50 cursor-not-allowed">
+          <button onClick={openAddItem} disabled={itemFormSaving} className="inline-flex items-center gap-2 rounded-lg bg-[#B08D57] px-4 py-2 text-sm font-medium text-white hover:bg-[#9C7B4C] disabled:opacity-50">
             <Plus size={16} /> Add Item
           </button>
         </div>
@@ -259,7 +363,7 @@ export default function Inventory() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <button className="rounded-lg p-2 text-[#71717A] hover:bg-[#F4F4F5]" title="Edit (coming soon)">
+                        <button onClick={() => openEditItem(item)} disabled={itemFormSaving} className="rounded-lg p-2 text-[#71717A] hover:bg-[#F4F4F5] disabled:opacity-50" title="Edit">
                           <Edit size={16} />
                         </button>
                         <button className="rounded-lg p-2 text-[#71717A] hover:bg-[#F4F4F5]" title="Movements (coming soon)">
@@ -289,6 +393,182 @@ export default function Inventory() {
           </div>
         )}
       </Card>
+
+      {/* Add/Edit Item Modal */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-[#E4E4E7] px-5 py-4">
+              <h2 className="text-lg font-semibold text-[#18181B]">
+                {editingItem ? "Edit Item" : "Add New Item"}
+              </h2>
+              <button onClick={() => setModalOpen(false)} className="text-[#71717A] hover:text-[#18181B]">
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleItemSubmit} className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-[#18181B]">SKU <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={itemForm.sku}
+                    onChange={(e) => setItemForm((prev) => ({ ...prev, sku: e.target.value }))}
+                    placeholder="GR-22K-001"
+                    disabled={!!editingItem || itemFormSaving}
+                    className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed disabled:bg-[#F4F4F5]"
+                  />
+                  {itemFormErrors.sku && <p className="mt-1 text-sm text-red-600">{itemFormErrors.sku}</p>}
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-[#18181B]">Name <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={itemForm.name}
+                    onChange={(e) => setItemForm((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder="Gold Ring 22K Plain"
+                    disabled={itemFormSaving}
+                    className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed"
+                  />
+                  {itemFormErrors.name && <p className="mt-1 text-sm text-red-600">{itemFormErrors.name}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#18181B]">Category <span className="text-red-500">*</span></label>
+                  <select
+                    value={itemForm.category}
+                    onChange={(e) => setItemForm((prev) => ({ ...prev, category: e.target.value as InventoryCategory }))}
+                    disabled={itemFormSaving}
+                    className="mt-2 w-full rounded-lg border border-[#D4D4D8] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed"
+                  >
+                    {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#18181B]">Metal <span className="text-red-500">*</span></label>
+                  <select
+                    value={itemForm.metal_type}
+                    onChange={(e) => setItemForm((prev) => ({ ...prev, metal_type: e.target.value as MetalType }))}
+                    disabled={itemFormSaving}
+                    className="mt-2 w-full rounded-lg border border-[#D4D4D8] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed"
+                  >
+                    {METAL_TYPES.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#18181B]">Purity <span className="text-red-500">*</span></label>
+                  <select
+                    value={itemForm.purity}
+                    onChange={(e) => setItemForm((prev) => ({ ...prev, purity: e.target.value }))}
+                    disabled={itemFormSaving}
+                    className="mt-2 w-full rounded-lg border border-[#D4D4D8] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed"
+                  >
+                    {getPurityOptions(itemForm.metal_type).map((p) => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#18181B]">Weight (g) <span className="text-red-500">*</span></label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    min="0.001"
+                    value={itemForm.weight_g}
+                    onChange={(e) => setItemForm((prev) => ({ ...prev, weight_g: Number(e.target.value) }))}
+                    placeholder="5.250"
+                    disabled={itemFormSaving}
+                    className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed"
+                  />
+                  {itemFormErrors.weight_g && <p className="mt-1 text-sm text-red-600">{itemFormErrors.weight_g}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#18181B]">Cost Rate <span className="text-red-500">*</span></label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={itemForm.cost_rate}
+                    onChange={(e) => setItemForm((prev) => ({ ...prev, cost_rate: Number(e.target.value) }))}
+                    placeholder="58500.00"
+                    disabled={itemFormSaving}
+                    className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed"
+                  />
+                  <p className="mt-1 text-xs text-[#71717A]">Per 10g (Gold) / Per kg (Silver)</p>
+                  {itemFormErrors.cost_rate && <p className="mt-1 text-sm text-red-600">{itemFormErrors.cost_rate}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#18181B]">Sale Rate <span className="text-red-500">*</span></label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={itemForm.sale_rate}
+                    onChange={(e) => setItemForm((prev) => ({ ...prev, sale_rate: Number(e.target.value) }))}
+                    placeholder="64350.00"
+                    disabled={itemFormSaving}
+                    className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed"
+                  />
+                  <p className="mt-1 text-xs text-[#71717A]">Per 10g (Gold) / Per kg (Silver)</p>
+                  {itemFormErrors.sale_rate && <p className="mt-1 text-sm text-red-600">{itemFormErrors.sale_rate}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#18181B]">Min Stock Qty</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={itemForm.min_stock_qty}
+                    onChange={(e) => setItemForm((prev) => ({ ...prev, min_stock_qty: Number(e.target.value) }))}
+                    placeholder="5"
+                    disabled={itemFormSaving}
+                    className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#18181B]">Location</label>
+                  <input
+                    type="text"
+                    value={itemForm.location}
+                    onChange={(e) => setItemForm((prev) => ({ ...prev, location: e.target.value }))}
+                    placeholder="SAFE-A"
+                    disabled={itemFormSaving}
+                    className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="is_active"
+                    checked={itemForm.is_active}
+                    onChange={(e) => setItemForm((prev) => ({ ...prev, is_active: e.target.checked }))}
+                    disabled={itemFormSaving}
+                    className="rounded border-[#D4D4D8] text-[#B08D57] focus:ring-[#B08D57]"
+                  />
+                  <label htmlFor="is_active" className="text-sm text-[#18181B] cursor-pointer">Active</label>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3 border-t border-[#E4E4E7] pt-4">
+                <button type="button" onClick={() => setModalOpen(false)} disabled={itemFormSaving} className="rounded-lg border border-[#D4D4D8] px-4 py-2.5 text-sm font-medium text-[#18181B] hover:bg-[#FAFAFA] disabled:opacity-50">
+                  Cancel
+                </button>
+                <button type="submit" disabled={itemFormSaving} className="inline-flex items-center gap-2 rounded-lg bg-[#B08D57] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#9C7B4C] disabled:opacity-50">
+                  <Save size={16} />
+                  {itemFormSaving ? "Saving..." : editingItem ? "Update" : "Create"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

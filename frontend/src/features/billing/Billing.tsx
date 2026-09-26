@@ -20,6 +20,12 @@ import {
 } from "../dashboard/metalRates.service";
 
 import {
+  searchInventoryForBilling,
+  type InventorySearchResult,
+  createOutMovementsForInvoice,
+} from "../inventory/inventory.service";
+
+import {
   calculateBillingItem,
   type MetalRateUnit,
   type MetalType,
@@ -59,6 +65,8 @@ interface BillingItem {
   makingCharge: string;
 
   discount: string;
+
+  inventoryItemId: string;
 }
 
 interface CalculatedItem {
@@ -98,6 +106,8 @@ function createEmptyItem(): BillingItem {
     makingCharge: "0",
 
     discount: "0",
+
+    inventoryItemId: "",
   };
 }
 
@@ -292,6 +302,20 @@ export default function Billing() {
 
   const [metalRateError, setMetalRateError] =
     useState<string | null>(null);
+
+  const [inventorySearch, setInventorySearch] =
+    useState<Record<string, string>>({});
+
+  const [inventoryDropdownOpen, setInventoryDropdownOpen] =
+    useState<Record<string, boolean>>({});
+
+  const [inventoryResults, setInventoryResults] =
+    useState<Record<string, InventorySearchResult[]>>({});
+
+  const [inventoryLoading, setInventoryLoading] =
+    useState<Record<string, boolean>>({});
+
+  const inventoryDropdownRef = useRef<HTMLDivElement>(null);
 
   const [items, setItems] =
     useState<BillingItem[]>([
@@ -563,6 +587,53 @@ export default function Billing() {
     });
   }
 
+  async function searchInventory(itemId: string, query: string) {
+    setInventorySearch((prev) => ({ ...prev, [itemId]: query }));
+    setInventoryLoading((prev) => ({ ...prev, [itemId]: true }));
+
+    if (!query.trim()) {
+      setInventoryResults((prev) => ({ ...prev, [itemId]: [] }));
+      setInventoryDropdownOpen((prev) => ({ ...prev, [itemId]: true }));
+      setInventoryLoading((prev) => ({ ...prev, [itemId]: false }));
+      return;
+    }
+
+    try {
+      const results = await searchInventoryForBilling(query);
+      setInventoryResults((prev) => ({ ...prev, [itemId]: results }));
+      setInventoryDropdownOpen((prev) => ({ ...prev, [itemId]: true }));
+    } catch (error) {
+      console.error("Inventory search failed:", error);
+      setInventoryResults((prev) => ({ ...prev, [itemId]: [] }));
+    } finally {
+      setInventoryLoading((prev) => ({ ...prev, [itemId]: false }));
+    }
+  }
+
+  function selectInventoryItem(itemId: string, inv: InventorySearchResult) {
+    const rate = inv.sale_rate > 0 ? String(inv.sale_rate) : "";
+    updateItem(itemId, {
+      inventoryItemId: inv.id,
+      itemName: inv.name,
+      metalType: inv.metal_type,
+      purity: inv.purity,
+      weight: String(inv.weight_g),
+      metalRate: rate,
+      metalRateUnit: inv.metal_type === "GOLD" ? "10g" : "1kg",
+    });
+    setInventoryDropdownOpen((prev) => ({ ...prev, [itemId]: false }));
+    setInventorySearch((prev) => ({ ...prev, [itemId]: inv.name }));
+  }
+
+  function clearInventoryItem(itemId: string) {
+    updateItem(itemId, {
+      inventoryItemId: "",
+    });
+    setInventorySearch((prev) => ({ ...prev, [itemId]: "" }));
+    setInventoryDropdownOpen((prev) => ({ ...prev, [itemId]: false }));
+    setInventoryResults((prev) => ({ ...prev, [itemId]: [] }));
+  }
+
   function addItem() {
     const newItem =
       createEmptyItem();
@@ -716,6 +787,21 @@ export default function Billing() {
       "Invoice created successfully:",
       invoice,
     );
+
+    // Auto-create OUT stock movements for linked inventory items
+    const outMovementItems = items
+      .filter((i) => i.inventoryItemId)
+      .map((i) => ({
+        inventory_item_id: i.inventoryItemId,
+        qty: Number(i.weight) > 0 ? 1 : 0, // Each line item = 1 unit sold
+        weight_g: Number(i.weight) || 0,
+        cost_rate: Number(i.metalRate) || 0,
+      }))
+      .filter((i) => i.qty > 0);
+
+    if (outMovementItems.length > 0) {
+      await createOutMovementsForInvoice(invoice.id, outMovementItems);
+    }
 
     /*
      * Navigate to the saved invoice preview.
@@ -962,6 +1048,71 @@ export default function Billing() {
                       </div>
 
                       <div className="grid gap-4 sm:grid-cols-2">
+                        {/* Inventory Item Selector */}
+                        <div className="sm:col-span-2">
+                          <label className="block text-sm font-medium text-[#18181B]">
+                            Inventory Item (optional)
+                          </label>
+
+                          <div className="relative mt-2" ref={inventoryDropdownRef}>
+                            <div className="relative">
+                              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#71717A]" size={18} />
+                              <input
+                                type="text"
+                                value={inventorySearch[item.id] ?? ""}
+                                onChange={(e) => searchInventory(item.id, e.target.value)}
+                                onFocus={() => searchInventory(item.id, inventorySearch[item.id] ?? "")}
+                                placeholder="Search inventory by SKU or name..."
+                                disabled={readOnly}
+                                className="w-full rounded-lg border border-[#D4D4D8] bg-white pl-10 pr-10 py-2.5 text-sm text-[#18181B] outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed disabled:opacity-50"
+                              />
+                              {item.inventoryItemId && (
+                                <button
+                                  type="button"
+                                  onClick={() => clearInventoryItem(item.id)}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#71717A] hover:text-[#18181A]"
+                                >
+                                  <X size={16} />
+                                </button>
+                              )}
+                            </div>
+
+                            {inventoryLoading[item.id] && (
+                              <div className="absolute z-10 mt-1 w-full rounded-lg border border-[#E4E4E7] bg-white shadow-lg px-3 py-2.5 text-sm text-[#71717A]">
+                                Searching inventory...
+                              </div>
+                            )}
+
+                            {inventoryDropdownOpen[item.id] && !inventoryLoading[item.id] && (inventoryResults[item.id]?.length ?? 0) > 0 && (
+                              <div
+                                className="absolute z-10 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-[#E4E4E7] bg-white shadow-lg"
+                                role="listbox"
+                              >
+                                {inventoryResults[item.id]?.map((inv) => (
+                                  <button
+                                    key={inv.id}
+                                    type="button"
+                                    onClick={() => selectInventoryItem(item.id, inv)}
+                                    className="w-full px-3 py-2.5 text-sm text-left transition-colors text-[#18181B] hover:bg-[#FAFAFA]"
+                                    role="option"
+                                  >
+                                    <div className="font-medium">{inv.name}</div>
+                                    <div className="text-xs text-[#71717A]">
+                                      {inv.sku} • {inv.category} • {inv.metal_type} {inv.purity} • Stock: {inv.current_qty}
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+
+                            {inventoryDropdownOpen[item.id] && !inventoryLoading[item.id] && (inventoryResults[item.id]?.length ?? 0) === 0 && (inventorySearch[item.id] ?? "").trim() && (
+                              <div className="absolute z-10 mt-1 w-full rounded-lg border border-[#E4E4E7] bg-white shadow-lg px-3 py-2.5 text-sm text-[#71717A]">
+                                No inventory items match your search.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
                         {/* Item name */}
                         <div className="sm:col-span-2">
                           <label className="block text-sm font-medium text-[#18181B]">

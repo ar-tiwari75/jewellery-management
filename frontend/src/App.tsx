@@ -15,7 +15,8 @@ import Reports from "./features/reports/Reports";
 import Inventory from "./features/inventory/Inventory";
 
 function RequireRole({ allowedRoles, children }: { allowedRoles: string[]; children: React.ReactNode }) {
-  const { profile } = useAuth();
+  const { profile, loading } = useAuth();
+  if (loading) return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
   if (!allowedRoles.includes(profile?.role ?? "")) {
     return <Navigate to="/" replace />;
   }
@@ -79,7 +80,7 @@ function App() {
         <Route
           path="/reports"
           element={
-            <RequireRole allowedRoles={["ADMIN", "MANAGER"]}>
+            <RequireRole allowedRoles={["ADMIN", "MANAGER", "STAFF"]}>
               <Reports />
             </RequireRole>
           }

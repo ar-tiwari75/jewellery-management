@@ -162,10 +162,7 @@ export async function listInventoryItems(params?: {
 
   let query = supabase
     .from("inventory_items")
-    .select(`
-      *,
-      inventory_stock!inner (current_qty, last_movement_at)
-    `)
+    .select("*")
     .eq("shop_id", shopId);
 
   if (params?.active_only !== false) query = query.eq("is_active", true);
@@ -177,17 +174,32 @@ export async function listInventoryItems(params?: {
 
   query = query.order("updated_at", { ascending: false }).limit(limit + 1);
 
-if (params?.cursor) {
-      const decoded = b64decode(params.cursor);
-      const [updated_at, id] = decoded.split("|");
-      query = query.or(`updated_at.lt.${updated_at},and(updated_at.eq.${updated_at},id.lt.${id})`);
-    }
+  if (params?.cursor) {
+    const decoded = b64decode(params.cursor);
+    const [updated_at, id] = decoded.split("|");
+    query = query.or(`updated_at.lt.${updated_at},and(updated_at.eq.${updated_at},id.lt.${id})`);
+  }
 
   const { data, error } = await query;
   if (error) throw new Error("Failed to load inventory: " + error.message);
 
-  const items = (data ?? []).map((row) => {
-    const stock = Array.isArray(row.inventory_stock) ? row.inventory_stock[0] : row.inventory_stock;
+  const itemsData = data ?? [];
+  const itemIds = itemsData.map((i) => i.id);
+
+  // Fetch stock data separately
+  let stockMap = new Map<string, { current_qty: number; last_movement_at: string | null }>();
+  if (itemIds.length > 0) {
+    const { data: stockData } = await supabase
+      .from("inventory_stock")
+      .select("item_id, current_qty, last_movement_at")
+      .in("item_id", itemIds);
+    for (const s of stockData ?? []) {
+      stockMap.set(s.item_id, { current_qty: s.current_qty, last_movement_at: s.last_movement_at });
+    }
+  }
+
+  const items = itemsData.map((row) => {
+    const stock = stockMap.get(row.id);
     const current_qty = stock?.current_qty ?? 0;
     return {
       ...row,
@@ -216,24 +228,27 @@ export async function getInventoryItem(id: string): Promise<ItemWithStock | null
   const shopId = await getShopId();
   const { data, error } = await supabase
     .from("inventory_items")
-    .select(`
-      *,
-      inventory_stock!inner (current_qty, last_movement_at)
-    `)
+    .select("*")
     .eq("shop_id", shopId)
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error("Failed to load item: " + error.message);
   if (!data) return null;
-    const stock = Array.isArray(data.inventory_stock) ? data.inventory_stock[0] : data.inventory_stock;
-    const current_qty = stock?.current_qty ?? 0;
-    return {
-      ...data,
-      current_qty,
-      stock_value: current_qty * data.cost_rate,
-      last_movement_at: stock?.last_movement_at ?? null,
-      is_low_stock: current_qty <= data.min_stock_qty && data.min_stock_qty > 0,
-    };
+
+  const { data: stockData } = await supabase
+    .from("inventory_stock")
+    .select("current_qty, last_movement_at")
+    .eq("item_id", id)
+    .maybeSingle();
+
+  const current_qty = stockData?.current_qty ?? 0;
+  return {
+    ...data,
+    current_qty,
+    stock_value: current_qty * data.cost_rate,
+    last_movement_at: stockData?.last_movement_at ?? null,
+    is_low_stock: current_qty <= data.min_stock_qty && data.min_stock_qty > 0,
+  };
 }
 
 export async function createInventoryItem(input: InventoryItemInput): Promise<InventoryItem> {
@@ -354,18 +369,26 @@ export async function getInventorySummary(): Promise<InventorySummary> {
 
   const { data: items, error } = await supabase
     .from("inventory_items")
-    .select(`
-      id, category, metal_type, cost_rate, min_stock_qty,
-      inventory_stock!inner (current_qty)
-    `)
+    .select("id, category, metal_type, cost_rate, min_stock_qty")
     .eq("shop_id", shopId)
     .eq("is_active", true);
 
   if (error) throw new Error("Failed to load summary: " + error.message);
 
+  const itemIds = (items ?? []).map((i) => i.id);
+  let stockMap = new Map<string, number>();
+  if (itemIds.length > 0) {
+    const { data: stockData } = await supabase
+      .from("inventory_stock")
+      .select("item_id, current_qty")
+      .in("item_id", itemIds);
+    for (const s of stockData ?? []) {
+      stockMap.set(s.item_id, s.current_qty);
+    }
+  }
+
   const enriched = (items ?? []).map((i) => {
-    const stock = Array.isArray(i.inventory_stock) ? i.inventory_stock[0] : i.inventory_stock;
-    const current_qty = stock?.current_qty ?? 0;
+    const current_qty = stockMap.get(i.id) ?? 0;
     return {
       ...i,
       current_qty,
@@ -565,10 +588,7 @@ export async function searchInventoryForBilling(query: string): Promise<Array<{
   const shopId = await getShopId();
   const { data, error } = await supabase
     .from("inventory_items")
-    .select(`
-      id, sku, name, category, metal_type, purity, weight_g, sale_rate,
-      inventory_stock!inner (current_qty)
-    `)
+    .select("id, sku, name, category, metal_type, purity, weight_g, sale_rate")
     .eq("shop_id", shopId)
     .eq("is_active", true)
     .or(`sku.ilike.%${query}%,name.ilike.%${query}%`)
@@ -577,18 +597,27 @@ export async function searchInventoryForBilling(query: string): Promise<Array<{
 
   if (error) throw new Error("Failed to search inventory: " + error.message);
 
-  return (data ?? []).map((row) => {
-    const stock = Array.isArray(row.inventory_stock) ? row.inventory_stock[0] : row.inventory_stock;
-    return {
-      id: row.id,
-      sku: row.sku,
-      name: row.name,
-      category: row.category,
-      metal_type: row.metal_type,
-      purity: row.purity,
-      weight_g: row.weight_g,
-      sale_rate: row.sale_rate,
-      current_qty: stock?.current_qty ?? 0,
-    };
-  });
+  const itemIds = (data ?? []).map((r) => r.id);
+  let stockMap = new Map<string, number>();
+  if (itemIds.length > 0) {
+    const { data: stockData } = await supabase
+      .from("inventory_stock")
+      .select("item_id, current_qty")
+      .in("item_id", itemIds);
+    for (const s of stockData ?? []) {
+      stockMap.set(s.item_id, s.current_qty);
+    }
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    sku: row.sku,
+    name: row.name,
+    category: row.category,
+    metal_type: row.metal_type,
+    purity: row.purity,
+    weight_g: row.weight_g,
+    sale_rate: row.sale_rate,
+    current_qty: stockMap.get(row.id) ?? 0,
+  }));
 }

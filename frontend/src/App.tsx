@@ -80,7 +80,7 @@ function App() {
         <Route
           path="/reports"
           element={
-            <RequireRole allowedRoles={["ADMIN", "MANAGER", "STAFF"]}>
+            <RequireRole allowedRoles={["ADMIN", "MANAGER"]}>
               <Reports />
             </RequireRole>
           }

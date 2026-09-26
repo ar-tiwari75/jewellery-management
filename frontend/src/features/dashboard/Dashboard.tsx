@@ -437,47 +437,76 @@ export default function Dashboard() {
             </p>
           </div>
         ) : (
-          <div className="p-5">
-            <div className="mb-3">
-              <p className="text-xs font-medium uppercase tracking-wider text-[#B08D57]">
-                Gold Rates / 10g
-              </p>
+          <div className="overflow-hidden bg-[#18181B] p-4">
+            <div className="flex items-center gap-2 text-xs text-[#71717A] mb-2">
+              <span>Mumbai Market Rates</span>
+              <span>•</span>
+              <span>Updated {formatUpdatedTime(metalRate)}</span>
             </div>
-
-            <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
-              {(["24K", "23K", "22K", "20K", "18K", "16K", "14K", "10K"] as const).map((k) => {
-                const val = metalRate[`gold_${k.toLowerCase().replace("K", "k")}` as keyof typeof metalRate];
-                return (
-                  <div key={k} className="flex items-baseline justify-between">
-                    <span className="text-sm text-[#71717A]">{k}</span>
-                    <span className="text-sm font-semibold text-[#18181B]">
-                      ₹{Number(val ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="my-4 border-t border-[#E4E4E7]" />
-
-            <div className="mb-3">
-              <p className="text-xs font-medium uppercase tracking-wider text-[#71717A]">
-                Silver Rates / kg
-              </p>
-            </div>
-
-            <div className="grid grid-cols-3 gap-x-6 gap-y-3 sm:grid-cols-6">
-              {(["999", "995", "958", "925", "900", "800"] as const).map((p) => {
-                const val = metalRate[`silver_${p}` as keyof typeof metalRate];
-                return (
-                  <div key={p} className="flex items-baseline justify-between">
-                    <span className="text-sm text-[#71717A]">{p}</span>
-                    <span className="text-sm font-semibold text-[#18181B]">
-                      ₹{Number(val ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
-                    </span>
-                  </div>
-                );
-              })}
+            <div className="overflow-hidden whitespace-nowrap">
+              <div className="inline-flex gap-12 animate-marquee" style={{ animationDuration: '30s' }}>
+                {/* Gold 24K */}
+                <div className="flex items-center gap-2 px-4">
+                  <span className="text-xs text-[#B08D57]">GOLD 24K</span>
+                  <span className="text-sm font-bold text-white">
+                    ₹{Number(metalRate.gold_24k ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                  </span>
+                  <span className="text-xs text-[#71717A]">/10g</span>
+                </div>
+                {/* Gold 22K */}
+                <div className="flex items-center gap-2 px-4">
+                  <span className="text-xs text-[#B08D57]">GOLD 22K</span>
+                  <span className="text-sm font-bold text-white">
+                    ₹{Number(metalRate.gold_22k ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                  </span>
+                  <span className="text-xs text-[#71717A]">/10g</span>
+                </div>
+                {/* Gold 18K */}
+                <div className="flex items-center gap-2 px-4">
+                  <span className="text-xs text-[#B08D57]">GOLD 18K</span>
+                  <span className="text-sm font-bold text-white">
+                    ₹{Number(metalRate.gold_18k ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                  </span>
+                  <span className="text-xs text-[#71717A]">/10g</span>
+                </div>
+                {/* Silver 999 */}
+                <div className="flex items-center gap-2 px-4">
+                  <span className="text-xs text-[#9CA3AF]">SILVER 999</span>
+                  <span className="text-sm font-bold text-white">
+                    ₹{Number(metalRate.silver_999 ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                  </span>
+                  <span className="text-xs text-[#71717A]">/kg</span>
+                </div>
+                {/* Repeat for seamless loop */}
+                <div className="flex items-center gap-2 px-4">
+                  <span className="text-xs text-[#B08D57]">GOLD 24K</span>
+                  <span className="text-sm font-bold text-white">
+                    ₹{Number(metalRate.gold_24k ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                  </span>
+                  <span className="text-xs text-[#71717A]">/10g</span>
+                </div>
+                <div className="flex items-center gap-2 px-4">
+                  <span className="text-xs text-[#B08D57]">GOLD 22K</span>
+                  <span className="text-sm font-bold text-white">
+                    ₹{Number(metalRate.gold_22k ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                  </span>
+                  <span className="text-xs text-[#71717A]">/10g</span>
+                </div>
+                <div className="flex items-center gap-2 px-4">
+                  <span className="text-xs text-[#B08D57]">GOLD 18K</span>
+                  <span className="text-sm font-bold text-white">
+                    ₹{Number(metalRate.gold_18k ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                  </span>
+                  <span className="text-xs text-[#71717A]">/10g</span>
+                </div>
+                <div className="flex items-center gap-2 px-4">
+                  <span className="text-xs text-[#9CA3AF]">SILVER 999</span>
+                  <span className="text-sm font-bold text-white">
+                    ₹{Number(metalRate.silver_999 ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                  </span>
+                  <span className="text-xs text-[#71717A]">/kg</span>
+                </div>
+              </div>
             </div>
           </div>
         )}

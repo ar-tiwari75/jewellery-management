@@ -156,9 +156,12 @@ function getDefaultRate(
     const direct = colMap[purity];
     if (direct != null && direct > 0) return direct;
 
-    const karat = parseInt(purity, 10);
-    if (Number.isFinite(karat) && karat > 0 && karat <= 24 && metalRate.gold_24k > 0) {
-      return Math.round(metalRate.gold_24k * (karat / 24) * 100) / 100;
+    // Derive from 24K base rate
+    if (metalRate.gold_24k > 0) {
+      const karat = parseInt(purity, 10);
+      if (Number.isFinite(karat) && karat > 0 && karat <= 24) {
+        return Math.round(metalRate.gold_24k * (karat / 24) * 100) / 100;
+      }
     }
 
     return 0;
@@ -177,9 +180,12 @@ function getDefaultRate(
     const direct = colMap[purity];
     if (direct != null && direct > 0) return direct;
 
-    const purityNum = parseInt(purity, 10);
-    if (Number.isFinite(purityNum) && purityNum > 0 && metalRate.silver_999 > 0) {
-      return Math.round(metalRate.silver_999 * (purityNum / 999) * 100) / 100;
+    // Derive from 999 base rate
+    if (metalRate.silver_999 > 0) {
+      const purityNum = parseInt(purity, 10);
+      if (Number.isFinite(purityNum) && purityNum > 0) {
+        return Math.round(metalRate.silver_999 * (purityNum / 999) * 100) / 100;
+      }
     }
 
     return 0;

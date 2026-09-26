@@ -750,6 +750,9 @@ export default function Billing() {
 
             taxable_amount:
               calculatedItem.taxableAmount,
+
+            inventory_item_id:
+              item.inventoryItemId,
           };
         },
       );

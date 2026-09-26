@@ -1,5 +1,7 @@
 import { supabase } from "../../lib/supabase";
 
+import { updateInventoryItem } from "../inventory/inventory.service";
+
 export interface CreateInvoiceItemInput {
   item_name: string;
 
@@ -22,6 +24,8 @@ export interface CreateInvoiceItemInput {
   item_discount: number;
 
   taxable_amount: number;
+
+  inventory_item_id?: string;
 }
 
 export interface CreateInvoiceInput {
@@ -234,6 +238,9 @@ export async function createInvoice(
 
       taxable_amount:
         item.taxable_amount,
+
+      inventory_item_id:
+        item.inventory_item_id,
     }));
 
   /*
@@ -273,9 +280,31 @@ export async function createInvoice(
       );
     }
 
-    throw new Error(
+throw new Error(
       "Unable to create invoice items.",
     );
+  }
+
+  /*
+   * Update inventory items' sale_rate to match
+   * the actual sale rate from this invoice.
+   * This keeps inventory pricing current with actual sales.
+   */
+  const linkedItems = input.items.filter(
+    (item) => item.inventory_item_id && item.metal_rate > 0,
+  );
+
+  for (const item of linkedItems) {
+    try {
+      await updateInventoryItem(item.inventory_item_id!, {
+        sale_rate: item.metal_rate,
+      });
+    } catch (e) {
+      console.error(
+        "Failed to update inventory sale_rate:",
+        e,
+      );
+    }
   }
 
   return {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus,
   Search,
@@ -10,6 +10,9 @@ import {
   Trash2,
   X,
   Save,
+  Upload,
+  Download,
+  FileText,
 } from "lucide-react";
 import {
   listInventoryItems,
@@ -89,6 +92,13 @@ export default function Inventory() {
   } | null>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importErrors, setImportErrors] = useState<string[]>([]);
+  const [importPreview, setImportPreview] = useState<InventoryItemInput[]>([]);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importSuccess, setImportSuccess] = useState<number>(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [editingItem, setEditingItem] = useState<ItemWithStock | null>(null);
   const [itemForm, setItemForm] = useState<InventoryItemInput>({
     sku: "",
@@ -114,6 +124,199 @@ export default function Inventory() {
       console.error("Failed to load summary:", e);
     }
   }, []);
+
+  const downloadTemplate = useCallback(() => {
+    const headers = [
+      "sku",
+      "name",
+      "category",
+      "metal_type",
+      "purity",
+      "weight_g",
+      "cost_rate",
+      "sale_rate",
+      "min_stock_qty",
+      "location",
+      "is_active",
+    ];
+
+    const rows = [
+      headers.join(","),
+      [
+        "GR-22K-001",
+        "Gold Ring 22K Plain",
+        "RING",
+        "GOLD",
+        "22K",
+        "5.250",
+        "58500.00",
+        "64350.00",
+        "3",
+        "SAFE-A",
+        "true",
+      ].join(","),
+      [
+        "NB-18K-001",
+        "Gold Necklace 18K Diamond",
+        "NECKLACE",
+        "GOLD",
+        "18K",
+        "12.500",
+        "49500.00",
+        "54450.00",
+        "2",
+        "SAFE-A",
+        "true",
+      ].join(","),
+      [
+        "SN-999-001",
+        "Silver Coin 999 10g",
+        "COIN",
+        "SILVER",
+        "999",
+        "10.000",
+        "75000.00",
+        "82500.00",
+        "10",
+        "SHOWCASE-1",
+        "true",
+      ].join(","),
+    ];
+
+    const csv = rows.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "inventory_template.csv";
+    link.click();
+  }, []);
+
+  const parseCSV = (text: string): InventoryItemInput[] => {
+    const lines = text.trim().split("\n");
+    if (lines.length < 2) return [];
+
+    const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+    const requiredHeaders = [
+      "sku",
+      "name",
+      "category",
+      "metal_type",
+      "purity",
+      "weight_g",
+      "cost_rate",
+      "sale_rate",
+    ];
+
+    for (const req of requiredHeaders) {
+      if (!headers.includes(req)) {
+        throw new Error(`Missing required column: ${req}`);
+      }
+    }
+
+    const results: InventoryItemInput[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(",").map((v) => v.trim());
+      if (values.length < headers.length) continue;
+
+      const row: Record<string, string> = {};
+      headers.forEach((h, idx) => (row[h] = values[idx] ?? ""));
+
+      const metalType = row.metal_type?.toUpperCase();
+      const purity = row.purity?.toUpperCase();
+      const category = row.category?.toUpperCase();
+      const isActive = row.is_active?.toLowerCase() === "true";
+
+      const item: InventoryItemInput = {
+        sku: row.sku,
+        name: row.name,
+        category: category as "RING" | "NECKLACE" | "BANGLE" | "CHAIN" | "COIN" | "OTHER",
+        metal_type: metalType as "GOLD" | "SILVER",
+        purity,
+        weight_g: parseFloat(row.weight_g) || 0,
+        cost_rate: parseFloat(row.cost_rate) || 0,
+        sale_rate: parseFloat(row.sale_rate) || 0,
+        min_stock_qty: parseInt(row.min_stock_qty ?? "0", 10) || 0,
+        location: row.location || undefined,
+        is_active: isActive,
+      };
+
+      results.push(item);
+    }
+    return results;
+  };
+
+  const validateItems = (items: InventoryItemInput[]): string[] => {
+    const errors: string[] = [];
+    const seenSkus = new Set<string>();
+
+    items.forEach((item, idx) => {
+      const rowNum = idx + 2;
+      if (!item.sku?.trim()) errors.push(`Row ${rowNum}: SKU is required`);
+      if (!item.name?.trim()) errors.push(`Row ${rowNum}: Name is required`);
+      if (!["RING", "NECKLACE", "BANGLE", "CHAIN", "COIN", "OTHER"].includes(item.category))
+        errors.push(`Row ${rowNum}: Invalid category "${item.category}"`);
+      if (!["GOLD", "SILVER"].includes(item.metal_type))
+        errors.push(`Row ${rowNum}: Invalid metal_type "${item.metal_type}"`);
+      if (item.metal_type === "GOLD" && !["24K", "23K", "22K", "20K", "18K", "16K", "14K", "10K"].includes(item.purity))
+        errors.push(`Row ${rowNum}: Invalid gold purity "${item.purity}"`);
+      if (item.metal_type === "SILVER" && !["999", "995", "958", "925", "900", "800"].includes(item.purity))
+        errors.push(`Row ${rowNum}: Invalid silver purity "${item.purity}"`);
+      if (item.weight_g <= 0) errors.push(`Row ${rowNum}: Weight must be > 0`);
+      if (item.cost_rate <= 0) errors.push(`Row ${rowNum}: Cost rate must be > 0`);
+      if (item.sale_rate <= 0) errors.push(`Row ${rowNum}: Sale rate must be > 0`);
+      if (item.sale_rate < item.cost_rate) errors.push(`Row ${rowNum}: Sale rate should be >= cost rate`);
+      if (seenSkus.has(item.sku)) errors.push(`Row ${rowNum}: Duplicate SKU "${item.sku}"`);
+      seenSkus.add(item.sku);
+    });
+    return errors;
+  };
+
+  const handleFileSelect = (file: File) => {
+    setImportFile(file);
+    setImportErrors([]);
+    setImportPreview([]);
+    setImportSuccess(0);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const parsed = parseCSV(text);
+        const errors = validateItems(parsed);
+        if (errors.length > 0) {
+          setImportErrors(errors);
+        } else {
+          setImportPreview(parsed);
+        }
+      } catch (e) {
+        setImportErrors([e instanceof Error ? e.message : "Failed to parse CSV"]);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImport = async () => {
+    if (!importPreview.length) return;
+    setImportLoading(true);
+    setImportSuccess(0);
+    setImportErrors([]);
+
+    try {
+      for (const item of importPreview) {
+        await createInventoryItem(item);
+        setImportSuccess((prev) => prev + 1);
+      }
+      setImportModalOpen(false);
+      setImportFile(null);
+      setImportPreview([]);
+      loadItems(true);
+      loadSummary();
+    } catch (e) {
+      setImportErrors([e instanceof Error ? e.message : "Import failed"]);
+    } finally {
+      setImportLoading(false);
+    }
+  };
 
   const loadItems = useCallback(async (reset = false) => {
     try {
@@ -313,9 +516,17 @@ export default function Inventory() {
             <Package size={20} className="text-[#B08D57]" />
             <h2 className="font-semibold text-[#18181B]">Inventory Items</h2>
           </div>
-          <button onClick={openAddItem} disabled={itemFormSaving} className="inline-flex items-center gap-2 rounded-lg bg-[#B08D57] px-4 py-2 text-sm font-medium text-white hover:bg-[#9C7B4C] disabled:opacity-50">
-            <Plus size={16} /> Add Item
-          </button>
+          <div className="flex items-center gap-3">
+            <button onClick={() => setImportModalOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-[#D4D4D8] px-4 py-2 text-sm font-medium text-[#18181B] hover:bg-[#FAFAFA]">
+              <Upload size={16} /> Import CSV
+            </button>
+            <button onClick={downloadTemplate} className="inline-flex items-center gap-2 rounded-lg border border-[#D4D4D8] px-4 py-2 text-sm font-medium text-[#18181B] hover:bg-[#FAFAFA]">
+              <Download size={16} /> Template
+            </button>
+            <button onClick={openAddItem} disabled={itemFormSaving} className="inline-flex items-center gap-2 rounded-lg bg-[#B08D57] px-4 py-2 text-sm font-medium text-white hover:bg-[#9C7B4C] disabled:opacity-50">
+              <Plus size={16} /> Add Item
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -566,6 +777,79 @@ export default function Inventory() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Import CSV Modal */}
+      {importModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-[#E4E4E7] px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-[#F5EFE6] p-2 text-[#B08D57]">
+                  <FileText size={20} />
+                </div>
+                <h2 className="text-lg font-semibold text-[#18181B]">Import Inventory from CSV</h2>
+              </div>
+              <button onClick={() => setImportModalOpen(false)} className="text-[#71717A] hover:text-[#18181B]">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="text-sm text-[#71717A]">
+                <p>Upload a CSV file with inventory data. <a href="#" onClick={(e) => { e.preventDefault(); downloadTemplate(); setImportModalOpen(false); }} className="text-[#B08D57] underline">Download template</a> first to see the required format.</p>
+                <p className="mt-1">Required columns: sku, name, category, metal_type, purity, weight_g, cost_rate, sale_rate</p>
+                <p className="mt-1">Optional: min_stock_qty, location, is_active</p>
+              </div>
+
+              {importErrors.length > 0 && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  <p className="font-medium mb-2">Validation Errors:</p>
+                  <ul className="list-disc list-inside space-y-1 max-h-40 overflow-auto">
+                    {importErrors.map((err, idx) => <li key={idx}>{err}</li>)}
+                  </ul>
+                </div>
+              )}
+
+              {importPreview.length > 0 && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                  <p className="font-medium">Ready to import <strong>{importPreview.length}</strong> items</p>
+                  <p className="mt-1">Click "Import" to create them, or select a new file to replace.</p>
+                </div>
+              )}
+
+              <div className="relative">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept=".csv"
+                  onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+                  className="hidden"
+                  id="csv-file-input"
+                />
+                <label htmlFor="csv-file-input" className="inline-flex items-center gap-2 rounded-lg border border-[#D4D4D8] px-4 py-2.5 text-sm font-medium text-[#18181B] hover:bg-[#FAFAFA] cursor-pointer">
+                  <FileText size={16} />
+                  {importFile ? `Selected: ${importFile.name}` : "Choose CSV File"}
+                </label>
+                {importFile && (
+                  <button onClick={() => { setImportFile(null); setImportPreview([]); setImportErrors([]); fileInputRef.current && (fileInputRef.current.value = ""); }} className="ml-2 text-sm text-red-600 hover:underline">
+                    Remove
+                  </button>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 border-t border-[#E4E4E7] pt-4">
+                <button onClick={() => { setImportModalOpen(false); setImportFile(null); setImportPreview([]); setImportErrors([]); }} disabled={importLoading} className="rounded-lg border border-[#D4D4D8] px-4 py-2.5 text-sm font-medium text-[#18181B] hover:bg-[#FAFAFA] disabled:opacity-50">
+                  Cancel
+                </button>
+                <button onClick={handleImport} disabled={importLoading || !importPreview.length} className="inline-flex items-center gap-2 rounded-lg bg-[#B08D57] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#9C7B4C] disabled:opacity-50">
+                  <Upload size={16} />
+                  {importLoading ? `Importing... (${importSuccess}/${importPreview.length})` : "Import"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

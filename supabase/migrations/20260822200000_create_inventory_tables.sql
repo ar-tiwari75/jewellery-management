@@ -25,6 +25,17 @@ create table if not exists public.inventory_items (
   constraint inventory_items_shop_sku_key unique (shop_id, sku)
 );
 
+-- Updated_at trigger function (idempotent)
+create or replace function public.update_updated_at_column()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
 create index inventory_items_shop_category_idx on public.inventory_items (shop_id, category);
 create index inventory_items_shop_metal_purity_idx on public.inventory_items (shop_id, metal_type, purity);
 create index inventory_items_shop_active_idx on public.inventory_items (shop_id, is_active) where is_active = true;

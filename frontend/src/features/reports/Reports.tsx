@@ -18,6 +18,8 @@ import {
   Receipt,
   TrendingUp,
   Users,
+  Package,
+  AlertTriangle,
 } from "lucide-react";
 import {
   getReportSummary,
@@ -34,6 +36,15 @@ import {
   type TopCustomer,
   type StaffPerf,
 } from "./reports.service";
+
+import {
+  getInventorySummary,
+  getMovementTrend,
+  getTopMovingItems,
+  type InventorySummary,
+  type MovementTrend,
+  type TopMovingItem,
+} from "../inventory/inventory.service";
 
 const PIE_COLORS = ["#B08D57", "#71717A", "#D4A843", "#52525B", "#E8DFD0"];
 const GOLD = "#B08D57";
@@ -77,12 +88,16 @@ export default function Reports() {
   const [staffPerf, setStaffPerf] = useState<StaffPerf[]>([]);
   const [monthlyGst, setMonthlyGst] = useState<{ month: string; gst: number }[]>([]);
 
+  const [invSummary, setInvSummary] = useState<InventorySummary | null>(null);
+  const [movementTrend, setMovementTrend] = useState<MovementTrend[]>([]);
+  const [topMovers, setTopMovers] = useState<TopMovingItem[]>([]);
+
   const load = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const [s, d, m, metal, tc, sp, gst] = await Promise.all([
+      const [s, d, m, metal, tc, sp, gst, invS, mvTrend, topMv] = await Promise.all([
         getReportSummary(),
         getDailySales(30),
         getMonthlyRevenue(12),
@@ -90,6 +105,9 @@ export default function Reports() {
         getTopCustomers(10),
         getStaffPerformance(),
         getMonthlyGst(12),
+        getInventorySummary(),
+        getMovementTrend(30),
+        getTopMovingItems(10),
       ]);
 
       setSummary(s);
@@ -99,6 +117,9 @@ export default function Reports() {
       setTopCustomers(tc);
       setStaffPerf(sp);
       setMonthlyGst(gst);
+      setInvSummary(invS);
+      setMovementTrend(mvTrend);
+      setTopMovers(topMv);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load reports.");
     } finally {
@@ -432,6 +453,202 @@ export default function Reports() {
             </div>
           </div>
         </Card>
+      )}
+
+      {/* Inventory Section */}
+      {invSummary && (
+        <>
+          {/* Inventory Summary Cards */}
+          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card className="p-5">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-[#F5EFE6] p-2 text-[#B08D57]">
+                  <Package size={18} />
+                </div>
+                <div>
+                  <p className="text-xs text-[#71717A]">Total Items</p>
+                  <p className="text-xl font-bold text-[#18181B]">{invSummary.total_items}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-5">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-[#F5EFE6] p-2 text-[#B08D57]">
+                  <Package size={18} />
+                </div>
+                <div>
+                  <p className="text-xs text-[#71717A]">Total Stock Qty</p>
+                  <p className="text-xl font-bold text-[#18181B]">{invSummary.total_stock_qty}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-5">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-[#F5EFE6] p-2 text-[#B08D57]">
+                  <TrendingUp size={18} />
+                </div>
+                <div>
+                  <p className="text-xs text-[#71717A]">Stock Value</p>
+                  <p className="text-xl font-bold text-[#18181B]">₹{formatINR(invSummary.total_stock_value)}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-5">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-[#F5EFE6] p-2 text-[#B08D57]">
+                  <AlertTriangle size={18} />
+                </div>
+                <div>
+                  <p className="text-xs text-[#71717A]">Low Stock Items</p>
+                  <p className="text-xl font-bold text-[#18181B]">{invSummary.low_stock_count}</p>
+                  <p className="text-xs text-[#71717A]">{invSummary.out_of_stock_count} out of stock</p>
+                </div>
+              </div>
+            </Card>
+          </section>
+
+          {/* Two-column: Value by Category + Value by Metal */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <SectionTitle
+                icon={<Package size={18} />}
+                label="Breakdown"
+                title="Stock Value by Category"
+              />
+              <div className="p-5">
+                {invSummary.by_category.length ? (
+                  <ResponsiveContainer width="100%" height={280}>
+                    <PieChart>
+                      <Pie
+                        data={invSummary.by_category}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        dataKey="stock_value"
+                        nameKey="category"
+                        label={({ name, percent }) =>
+                          `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
+                        }
+                      >
+                        {invSummary.by_category.map((_, i) => (
+                          <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(v) => [`₹${Number(v ?? 0).toLocaleString("en-IN")}`, "Value"]}
+                        contentStyle={{ borderRadius: 8, border: "1px solid #E4E4E7", fontSize: 12 }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="py-8 text-center text-sm text-[#71717A]">No category data yet.</p>
+                )}
+              </div>
+            </Card>
+
+            <Card>
+              <SectionTitle
+                icon={<Package size={18} />}
+                label="Breakdown"
+                title="Stock Value by Metal"
+              />
+              <div className="p-5">
+                {invSummary.by_metal.length ? (
+                  <ResponsiveContainer width="100%" height={280}>
+                    <PieChart>
+                      <Pie
+                        data={invSummary.by_metal}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        dataKey="stock_value"
+                        nameKey="metal_type"
+                        label={({ name, percent }) =>
+                          `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
+                        }
+                      >
+                        {invSummary.by_metal.map((_, i) => (
+                          <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(v) => [`₹${Number(v ?? 0).toLocaleString("en-IN")}`, "Value"]}
+                        contentStyle={{ borderRadius: 8, border: "1px solid #E4E4E7", fontSize: 12 }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="py-8 text-center text-sm text-[#71717A]">No metal data yet.</p>
+                )}
+              </div>
+            </Card>
+          </div>
+
+          {/* Movement Trend + Top Moving Items */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <SectionTitle
+                icon={<TrendingUp size={18} />}
+                label="Movement"
+                title="Stock Movement Trend (30 Days)"
+              />
+              <div className="p-5">
+                {movementTrend.some((m) => m.in_qty > 0 || m.out_qty > 0) ? (
+                  <ResponsiveContainer width="100%" height={280}>
+                    <LineChart data={movementTrend}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#F4F4F5" />
+                      <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#71717A" }} />
+                      <YAxis tick={{ fontSize: 11, fill: "#71717A" }} allowDecimals={false} />
+                      <Tooltip
+                        formatter={(v, name) => [Number(v ?? 0), name]}
+                        contentStyle={{ borderRadius: 8, border: "1px solid #E4E4E7", fontSize: 12 }}
+                      />
+                      <Line type="monotone" dataKey="in_qty" stroke="#22C55E" strokeWidth={2} dot={{ fill: "#22C55E", r: 3 }} name="IN" />
+                      <Line type="monotone" dataKey="out_qty" stroke="#EF4444" strokeWidth={2} dot={{ fill: "#EF4444", r: 3 }} name="OUT" />
+                      <Line type="monotone" dataKey="adj_qty" stroke="#F59E0B" strokeWidth={2} dot={{ fill: "#F59E0B", r: 3 }} name="ADJ" />
+                      <Line type="monotone" dataKey="net_qty" stroke="#3B82F6" strokeWidth={2} dot={{ fill: "#3B82F6", r: 3 }} name="Net" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="py-8 text-center text-sm text-[#71717A]">No movement data yet.</p>
+                )}
+              </div>
+            </Card>
+
+            <Card>
+              <SectionTitle
+                icon={<TrendingUp size={18} />}
+                label="Top Movers"
+                title="Top 10 Items by OUT Movement"
+              />
+              <div className="p-5">
+                {topMovers.length ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={topMovers} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke="#F4F4F5" />
+                      <XAxis type="number" tick={{ fontSize: 11, fill: "#71717A" }} />
+                      <YAxis
+                        type="category"
+                        dataKey="name"
+                        tick={{ fontSize: 11, fill: "#71717A" }}
+                        width={120}
+                      />
+                      <Tooltip
+                        formatter={(v) => [Number(v ?? 0), "Units Sold"]}
+                        contentStyle={{ borderRadius: 8, border: "1px solid #E4E4E7", fontSize: 12 }}
+                      />
+                      <Bar dataKey="total_out" fill="#B08D57" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="py-8 text-center text-sm text-[#71717A]">No movement data yet.</p>
+                )}
+              </div>
+            </Card>
+          </div>
+        </>
       )}
     </div>
   );

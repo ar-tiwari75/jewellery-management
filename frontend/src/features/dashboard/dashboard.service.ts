@@ -1,4 +1,5 @@
 import { supabase } from "../../lib/supabase";
+import { getInventorySummary } from "../inventory/inventory.service";
 
 export interface DashboardMetrics {
   customerCount: number;
@@ -163,10 +164,10 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     );
 
   /*
-   * Inventory will be connected when the
-   * inventory table/module is implemented.
+   * 4. Inventory value from materialized view
    */
-  const inventoryValue = 0;
+  const inventorySummary = await getInventorySummary().catch(() => null);
+  const inventoryValue = inventorySummary?.total_stock_value ?? 0;
 
   return {
     customerCount:

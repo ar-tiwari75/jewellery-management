@@ -36,19 +36,28 @@ async function fetchAndStoreTodaysRates(): Promise<DailyMetalRate | null> {
   const today = getTodayDate();
   
   try {
+    // Get the current user's session for auth
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session?.access_token) {
+      console.error("No active session for fetching metal rates");
+      return null;
+    }
+    
     const response = await fetch(
       "https://ucrsqdjhkhedyzmjonjk.supabase.co/functions/v1/fetch-metal-rates",
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({}),
       }
     );
 
     if (!response.ok) {
-      console.error("Failed to fetch metal rates from edge function");
+      console.error("Failed to fetch metal rates from edge function:", response.status);
       return null;
     }
 

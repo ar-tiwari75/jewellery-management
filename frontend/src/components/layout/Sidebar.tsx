@@ -10,7 +10,7 @@ import {
   X,
   UserCog,
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 
 interface SidebarProps {
@@ -56,6 +56,7 @@ export default function Sidebar({
   onClose,
 }: SidebarProps) {
   const { profile } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <>
@@ -77,21 +78,25 @@ export default function Sidebar({
         `}
       >
         <div className="flex h-20 items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#B08D57]">
+          <button
+            onClick={() => navigate("/")}
+            className="flex items-center gap-3 w-full hover:bg-[#27272A] rounded-lg p-2 transition-colors"
+            aria-label="Go to Dashboard"
+          >
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#B08D57] flex-shrink-0">
               <Gem size={20} />
             </div>
 
-            <div>
-              <p className="text-sm font-semibold tracking-wide">
+            <div className="text-left min-w-0">
+              <p className="text-sm font-semibold tracking-wide truncate">
                 JEWELLERY
               </p>
 
-              <p className="text-xs text-zinc-400">
+              <p className="text-xs text-zinc-400 truncate">
                 Management
               </p>
             </div>
-          </div>
+          </button>
 
           <button
             onClick={onClose}

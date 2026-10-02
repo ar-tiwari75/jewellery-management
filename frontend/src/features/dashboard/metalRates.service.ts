@@ -33,7 +33,6 @@ function getTodayDate(): string {
 }
 
 async function fetchAndStoreTodaysRates(): Promise<DailyMetalRate | null> {
-  const today = getTodayDate();
   
   try {
     // Get the current user's session for auth

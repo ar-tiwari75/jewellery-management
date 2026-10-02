@@ -80,7 +80,7 @@ export default function Sidebar({
         <div className="flex h-20 items-center justify-between px-6">
           <button
             onClick={() => navigate("/")}
-            className="flex items-center gap-3 w-full hover:bg-[#27272A] rounded-lg p-2 transition-colors"
+            className="flex items-center gap-3 w-full hover:bg-[#27272A] rounded-lg p-2 transition-colors cursor-pointer"
             aria-label="Go to Dashboard"
           >
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#B08D57] flex-shrink-0">

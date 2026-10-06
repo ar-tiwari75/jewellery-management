@@ -272,11 +272,20 @@ export default function Dashboard() {
     }
   }
 
-  /*
-   * Load Dashboard metrics
-   */
+/*
+    * Load Dashboard metrics
+    */
   useEffect(() => {
     loadDashboardMetrics();
+  }, []);
+
+  // Refresh metrics when window gains focus (user returns to tab)
+  useEffect(() => {
+    function handleFocus() {
+      loadDashboardMetrics();
+    }
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
   }, []);
 
   /*

@@ -46,6 +46,8 @@ function cleanOptionalValue(
 }
 
 export async function getCustomers(): Promise<Customer[]> {
+  const shopId = await getUserShopId();
+
   const { data, error } = await supabase
     .from("customers")
     .select(
@@ -64,6 +66,7 @@ export async function getCustomers(): Promise<Customer[]> {
         updated_at
       `,
     )
+    .eq("shop_id", shopId)
     .order("full_name", {
       ascending: true,
     });

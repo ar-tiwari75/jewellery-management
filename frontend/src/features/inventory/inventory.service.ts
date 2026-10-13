@@ -92,6 +92,24 @@ export interface ItemWithStock extends InventoryItem {
   is_low_stock: boolean;
 }
 
+export interface InventoryWatchItem {
+  id: string;
+  sku: string;
+  name: string;
+  category: string;
+  metal_type: MetalType;
+  purity: string;
+  weight_g: number;
+  cost_rate: number;
+  sale_rate: number;
+  min_stock_qty: number;
+  location: string | null;
+  current_qty: number;
+  stock_value: number;
+  last_movement_at: string | null;
+  is_low_stock: boolean;
+}
+
 export interface InventorySummary {
   total_items: number;
   total_stock_qty: number;
@@ -251,6 +269,58 @@ export async function getInventoryItem(id: string): Promise<ItemWithStock | null
     last_movement_at: stockData?.last_movement_at ?? null,
     is_low_stock: current_qty <= data.min_stock_qty && data.min_stock_qty > 0,
   };
+}
+
+interface InventoryWatchRow {
+  item_id: string;
+  sku: string;
+  name: string;
+  category: string;
+  metal_type: MetalType;
+  purity: string;
+  weight_g: number | string;
+  cost_rate: number | string;
+  sale_rate: number | string;
+  min_stock_qty: number | string;
+  location: string | null;
+  current_qty: number | string;
+  stock_value: number | string;
+  last_movement_at: string | null;
+}
+
+export async function getInventoryWatchItems(limit = 5): Promise<InventoryWatchItem[]> {
+  const { data, error } = await supabase.rpc("get_inventory_watch_items", {
+    p_limit: limit,
+  });
+
+  if (error) {
+    throw new Error("Failed to load inventory watch list: " + error.message);
+  }
+
+  return ((data ?? []) as InventoryWatchRow[]).map((row) => {
+    const current_qty = Number(row.current_qty ?? 0);
+
+    return {
+      id: row.item_id,
+      sku: row.sku,
+      name: row.name,
+      category: row.category,
+      metal_type: row.metal_type,
+      purity: row.purity,
+      weight_g: Number(row.weight_g ?? 0),
+      cost_rate: Number(row.cost_rate ?? 0),
+      sale_rate: Number(row.sale_rate ?? 0),
+      min_stock_qty: Number(row.min_stock_qty ?? 0),
+      location: row.location ?? null,
+      current_qty,
+      stock_value: Number(row.stock_value ?? 0),
+      last_movement_at: row.last_movement_at ?? null,
+      is_low_stock:
+        current_qty > 0 &&
+        Number(row.min_stock_qty ?? 0) > 0 &&
+        current_qty <= Number(row.min_stock_qty ?? 0),
+    };
+  });
 }
 
 export async function createInventoryItem(input: InventoryItemInput): Promise<InventoryItem> {

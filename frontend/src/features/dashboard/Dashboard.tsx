@@ -21,6 +21,11 @@ import {
 } from "../billing/invoiceHistory.service";
 
 import {
+  getInventoryWatchItems,
+  type InventoryWatchItem,
+} from "../inventory/inventory.service";
+
+import {
   getDashboardMetrics,
   type DashboardMetrics,
 } from "./dashboard.service";
@@ -101,6 +106,18 @@ export default function Dashboard() {
     useState(true);
 
   const [dashboardMetricsError, setDashboardMetricsError] =
+    useState<string | null>(null);
+
+  /*
+   * Inventory watch
+   */
+  const [watchItems, setWatchItems] =
+    useState<InventoryWatchItem[]>([]);
+
+  const [watchLoading, setWatchLoading] =
+    useState(true);
+
+  const [watchError, setWatchError] =
     useState<string | null>(null);
 
   /*
@@ -300,14 +317,43 @@ export default function Dashboard() {
     }
   }
 
+  async function loadInventoryWatch() {
+    try {
+      setWatchLoading(true);
+      setWatchError(null);
+
+      const items = await getInventoryWatchItems(5);
+
+      setWatchItems(items);
+    } catch (error) {
+      console.error(
+        "Failed to load inventory watch list:",
+        error,
+      );
+
+      setWatchError(
+        error instanceof Error
+          ? error.message
+          : "Unable to load inventory watch list.",
+      );
+    } finally {
+      setWatchLoading(false);
+    }
+  }
+
   useEffect(() => {
     loadDashboardMetrics();
+  }, []);
+
+  useEffect(() => {
+    loadInventoryWatch();
   }, []);
 
   // Refresh metrics when window gains focus (user returns to tab)
   useEffect(() => {
     function handleFocus() {
       loadDashboardMetrics();
+      loadInventoryWatch();
     }
     window.addEventListener("focus", handleFocus);
     return () => window.removeEventListener("focus", handleFocus);
@@ -661,28 +707,94 @@ export default function Dashboard() {
 
         {/* Inventory alert */}
         <div className="rounded-xl border border-[#E4E4E7] bg-white">
-          <div className="border-b border-[#E4E4E7] px-5 py-5">
-            <h3 className="font-semibold text-[#18181B]">
-              Inventory Watch
-            </h3>
-
-            <p className="mt-1 text-xs text-[#71717A]">
-              Items that need attention
-            </p>
-          </div>
-
-          <div className="flex min-h-48 items-center justify-center px-5">
-            <div className="text-center">
-              <p className="text-sm font-medium text-[#18181B]">
-                No inventory data
-              </p>
+          <div className="flex items-start justify-between gap-4 border-b border-[#E4E4E7] px-5 py-5">
+            <div>
+              <h3 className="font-semibold text-[#18181B]">
+                Inventory Watch
+              </h3>
 
               <p className="mt-1 text-xs text-[#71717A]">
-                Add inventory to start tracking
-                ageing.
+                Items that need attention
               </p>
             </div>
+
+            <button
+              type="button"
+              onClick={() => navigate("/inventory")}
+              className="text-xs font-medium text-[#B08D57] hover:underline"
+            >
+              Open inventory
+            </button>
           </div>
+
+          {watchLoading ? (
+            <div className="flex min-h-48 items-center justify-center px-5">
+              <p className="text-sm text-[#71717A]">
+                Loading inventory alerts...
+              </p>
+            </div>
+          ) : watchError ? (
+            <div className="px-5 py-5">
+              <p className="text-sm text-red-600">
+                {watchError}
+              </p>
+
+              <button
+                type="button"
+                onClick={loadInventoryWatch}
+                className="mt-3 text-xs font-medium text-[#B08D57] hover:underline"
+              >
+                Retry
+              </button>
+            </div>
+          ) : watchItems.length === 0 ? (
+            <div className="flex min-h-48 items-center justify-center px-5">
+              <div className="text-center">
+                <p className="text-sm font-medium text-[#18181B]">
+                  Inventory looks healthy
+                </p>
+
+                <p className="mt-1 text-xs text-[#71717A]">
+                  No out-of-stock or low-stock items.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="divide-y divide-[#E4E4E7]">
+              {watchItems.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => navigate("/inventory")}
+                  className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left hover:bg-[#FAFAFA]"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-[#18181B]">
+                      {item.name}
+                    </p>
+
+                    <p className="mt-1 truncate text-xs text-[#71717A]">
+                      {item.sku} • {item.metal_type} {item.purity} • Min {item.min_stock_qty}
+                    </p>
+                  </div>
+
+                  <div className="shrink-0 text-right">
+                    <p
+                      className={`text-sm font-semibold ${
+                        item.current_qty === 0 ? "text-red-600" : "text-amber-700"
+                      }`}
+                    >
+                      {item.current_qty === 0 ? "Out of stock" : `Low: ${item.current_qty}`}
+                    </p>
+
+                    <p className="mt-1 text-[10px] uppercase text-[#71717A]">
+                      View item
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </div>

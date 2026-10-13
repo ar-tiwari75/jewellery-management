@@ -54,6 +54,7 @@ export interface InventoryItemInput {
   cost_rate: number;
   sale_rate: number;
   min_stock_qty?: number;
+  opening_qty?: number;
   location?: string;
   is_active?: boolean;
 }
@@ -253,37 +254,84 @@ export async function getInventoryItem(id: string): Promise<ItemWithStock | null
 }
 
 export async function createInventoryItem(input: InventoryItemInput): Promise<InventoryItem> {
-  const shopId = await getShopId();
-  const { data: { user }, error: ue } = await supabase.auth.getUser();
-  if (ue || !user) throw new Error("Not logged in.");
+  const { data, error } = await supabase.rpc("create_inventory_item", {
+    p_sku: input.sku ?? "",
+    p_name: input.name ?? "",
+    p_category: input.category ?? "",
+    p_metal_type: input.metal_type ?? "",
+    p_purity: input.purity ?? "",
+    p_weight_g: input.weight_g ?? 0,
+    p_cost_rate: input.cost_rate ?? 0,
+    p_sale_rate: input.sale_rate ?? 0,
+    p_min_stock_qty: input.min_stock_qty ?? 0,
+    p_location: input.location ?? null,
+    p_is_active: input.is_active ?? true,
+    p_opening_qty: input.opening_qty ?? 0,
+  });
 
-  const payload = {
-    shop_id: shopId,
-    ...input,
-    min_stock_qty: input.min_stock_qty ?? 0,
-    is_active: input.is_active ?? true,
-  };
+  if (error) {
+    throw new Error("Failed to create item: " + error.message);
+  }
 
-  const { data, error } = await supabase
-    .from("inventory_items")
-    .insert(payload)
-    .select()
-    .single();
-  if (error) throw new Error("Failed to create item: " + error.message);
-  return data;
+  if (!data) {
+    throw new Error("Failed to create item: no item was returned.");
+  }
+
+  return data as InventoryItem;
 }
 
 export async function updateInventoryItem(id: string, input: Partial<InventoryItemInput>): Promise<InventoryItem> {
-  const shopId = await getShopId();
-  const { data, error } = await supabase
-    .from("inventory_items")
-    .update({ ...input, updated_at: new Date().toISOString() })
-    .eq("shop_id", shopId)
-    .eq("id", id)
-    .select()
-    .single();
-  if (error) throw new Error("Failed to update item: " + error.message);
-  return data;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const { data, error } = await supabase.rpc("update_inventory_item", {
+        p_item_id: id,
+        p_sku: input.sku ?? "",
+        p_name: input.name ?? "",
+        p_category: input.category ?? "",
+        p_metal_type: input.metal_type ?? "",
+        p_purity: input.purity ?? "",
+        p_weight_g: input.weight_g ?? 0,
+        p_cost_rate: input.cost_rate ?? 0,
+        p_sale_rate: input.sale_rate ?? 0,
+        p_min_stock_qty: input.min_stock_qty ?? 0,
+        p_location: input.location ?? null,
+        p_is_active: input.is_active ?? true,
+      });
+
+      if (error) {
+        throw new Error("Failed to update item: " + error.message);
+      }
+
+      if (!data) {
+        throw new Error("Failed to update item: no updated item was returned.");
+      }
+
+      return data as InventoryItem;
+    } catch (requestError) {
+      const isNetworkFailure =
+        requestError instanceof TypeError &&
+        /failed to fetch|networkerror|load failed|network request failed/i.test(
+          requestError.message,
+        );
+
+      if (isNetworkFailure && attempt < 2) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, 500 * (attempt + 1)),
+        );
+        continue;
+      }
+
+      if (isNetworkFailure) {
+        throw new Error(
+          "Network request failed while updating the item. Check the internet connection, VPN, firewall, or ad-blocker, then retry.",
+        );
+      }
+
+      throw requestError;
+    }
+  }
+
+  throw new Error("Network request failed while updating the item.");
 }
 
 export async function deleteInventoryItem(id: string): Promise<void> {

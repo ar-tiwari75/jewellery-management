@@ -110,6 +110,7 @@ export default function Inventory() {
     cost_rate: 0,
     sale_rate: 0,
     min_stock_qty: 0,
+    opening_qty: 0,
     location: "",
     is_active: true,
   });
@@ -136,6 +137,7 @@ export default function Inventory() {
       "cost_rate",
       "sale_rate",
       "min_stock_qty",
+      "opening_qty",
       "location",
       "is_active",
     ];
@@ -152,6 +154,7 @@ export default function Inventory() {
         "58500.00",
         "64350.00",
         "3",
+        "10",
         "SAFE-A",
         "true",
       ].join(","),
@@ -165,6 +168,7 @@ export default function Inventory() {
         "49500.00",
         "54450.00",
         "2",
+        "5",
         "SAFE-A",
         "true",
       ].join(","),
@@ -178,6 +182,7 @@ export default function Inventory() {
         "75000.00",
         "82500.00",
         "10",
+        "100",
         "SHOWCASE-1",
         "true",
       ].join(","),
@@ -236,6 +241,10 @@ export default function Inventory() {
         cost_rate: parseFloat(row.cost_rate) || 0,
         sale_rate: parseFloat(row.sale_rate) || 0,
         min_stock_qty: parseInt(row.min_stock_qty ?? "0", 10) || 0,
+        opening_qty:
+          row.opening_qty === undefined || row.opening_qty.trim() === ""
+            ? 0
+            : Number(row.opening_qty),
         location: row.location || undefined,
         is_active: isActive,
       };
@@ -265,6 +274,13 @@ export default function Inventory() {
       if (item.cost_rate <= 0) errors.push(`Row ${rowNum}: Cost rate must be > 0`);
       if (item.sale_rate <= 0) errors.push(`Row ${rowNum}: Sale rate must be > 0`);
       if (item.sale_rate < item.cost_rate) errors.push(`Row ${rowNum}: Sale rate should be >= cost rate`);
+      if (
+        item.opening_qty === undefined ||
+        !Number.isInteger(item.opening_qty) ||
+        item.opening_qty < 0
+      ) {
+        errors.push(`Row ${rowNum}: Opening quantity must be a whole number of 0 or more`);
+      }
       if (seenSkus.has(item.sku)) errors.push(`Row ${rowNum}: Duplicate SKU "${item.sku}"`);
       seenSkus.add(item.sku);
     });
@@ -374,6 +390,13 @@ export default function Inventory() {
       errors.sale_rate = "Sale rate should be >= cost rate";
     }
 
+    if (!editingItem) {
+      const openingQty = itemForm.opening_qty ?? 0;
+      if (!Number.isInteger(openingQty) || openingQty < 0) {
+        errors.opening_qty = "Opening quantity must be a whole number of 0 or more";
+      }
+    }
+
     if (Object.keys(errors).length) {
       setItemFormErrors(errors);
       return;
@@ -408,6 +431,7 @@ export default function Inventory() {
       cost_rate: 0,
       sale_rate: 0,
       min_stock_qty: 0,
+      opening_qty: 0,
       location: "",
       is_active: true,
     });
@@ -429,6 +453,7 @@ export default function Inventory() {
         cost_rate: full.cost_rate,
         sale_rate: full.sale_rate,
         min_stock_qty: full.min_stock_qty,
+        opening_qty: 0,
         location: full.location ?? "",
         is_active: full.is_active,
       });
@@ -745,6 +770,24 @@ export default function Inventory() {
                   />
                 </div>
 
+                {!editingItem && (
+                  <div>
+                    <label className="block text-sm font-medium text-[#18181B]">Opening Qty</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={itemForm.opening_qty ?? 0}
+                      onChange={(e) => setItemForm((prev) => ({ ...prev, opening_qty: Number(e.target.value) }))}
+                      placeholder="0"
+                      disabled={itemFormSaving}
+                      className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed"
+                    />
+                    <p className="mt-1 text-xs text-[#71717A]">Creates an opening IN movement. Leave 0 for catalog-only.</p>
+                    {itemFormErrors.opening_qty && <p className="mt-1 text-sm text-red-600">{itemFormErrors.opening_qty}</p>}
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-[#18181B]">Location</label>
                   <input
@@ -804,7 +847,7 @@ export default function Inventory() {
               <div className="text-sm text-[#71717A]">
                 <p>Upload a CSV file with inventory data. <a href="#" onClick={(e) => { e.preventDefault(); downloadTemplate(); setImportModalOpen(false); }} className="text-[#B08D57] underline">Download template</a> first to see the required format.</p>
                 <p className="mt-1">Required columns: sku, name, category, metal_type, purity, weight_g, cost_rate, sale_rate</p>
-                <p className="mt-1">Optional: min_stock_qty, location, is_active</p>
+                <p className="mt-1">Optional: min_stock_qty, opening_qty, location, is_active</p>
               </div>
 
               {importErrors.length > 0 && (

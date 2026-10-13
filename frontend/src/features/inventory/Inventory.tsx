@@ -21,10 +21,14 @@ import {
   updateInventoryItem,
   deleteInventoryItem,
   getInventorySummary,
+  listStockMovements,
+  createStockMovement,
   type ItemWithStock,
   type InventoryItemInput,
   type InventoryCategory,
   type MetalType,
+  type MovementType,
+  type StockMovement,
 } from "./inventory.service";
 
 const CATEGORIES: InventoryCategory[] = ["RING", "NECKLACE", "BANGLE", "CHAIN", "COIN", "OTHER"];
@@ -116,6 +120,23 @@ export default function Inventory() {
   });
   const [itemFormErrors, setItemFormErrors] = useState<Partial<Record<keyof InventoryItemInput, string>>>({});
   const [itemFormSaving, setItemFormSaving] = useState(false);
+
+  const [movementModalOpen, setMovementModalOpen] = useState(false);
+  const [movementItem, setMovementItem] = useState<ItemWithStock | null>(null);
+  const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [movementsLoading, setMovementsLoading] = useState(false);
+  const [movementsError, setMovementsError] = useState<string | null>(null);
+  const [movementsCursor, setMovementsCursor] = useState<string | undefined>();
+  const [hasMoreMovements, setHasMoreMovements] = useState(false);
+  const [movementForm, setMovementForm] = useState({
+    type: "IN" as MovementType,
+    qty: 1,
+    unit_weight_g: 0,
+    unit_cost_rate: 0,
+    notes: "",
+  });
+  const [movementError, setMovementError] = useState<string | null>(null);
+  const [movementSaving, setMovementSaving] = useState(false);
 
   const loadSummary = useCallback(async () => {
     try {
@@ -372,6 +393,128 @@ export default function Inventory() {
     }
   };
 
+  const loadItemMovements = async (itemId: string, reset = false, cursor?: string) => {
+    try {
+      setMovementsLoading(true);
+      setMovementsError(null);
+
+      const result = await listStockMovements({
+        item_id: itemId,
+        limit: 20,
+        cursor: reset ? undefined : cursor,
+      });
+
+      if (reset) {
+        setMovements(result.movements);
+      } else {
+        setMovements((previous) => [...previous, ...result.movements]);
+      }
+
+      setMovementsCursor(result.next_cursor);
+      setHasMoreMovements(!!result.next_cursor);
+    } catch (e) {
+      setMovementsError(e instanceof Error ? e.message : "Failed to load movements");
+    } finally {
+      setMovementsLoading(false);
+    }
+  };
+
+  const openMovements = async (item: ItemWithStock) => {
+    setMovementItem(item);
+    setMovementForm({
+      type: "IN",
+      qty: 1,
+      unit_weight_g: item.weight_g,
+      unit_cost_rate: item.cost_rate,
+      notes: "",
+    });
+    setMovementError(null);
+    setMovements([]);
+    setMovementsCursor(undefined);
+    setHasMoreMovements(false);
+    setMovementModalOpen(true);
+    await loadItemMovements(item.id, true);
+  };
+
+  const closeMovements = () => {
+    setMovementModalOpen(false);
+    setMovementItem(null);
+    setMovements([]);
+    setMovementsCursor(undefined);
+    setHasMoreMovements(false);
+    setMovementError(null);
+  };
+
+  const handleMovementSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!movementItem) return;
+
+    setMovementError(null);
+
+    const enteredQty = Number(movementForm.qty);
+    if (!Number.isInteger(enteredQty) || enteredQty === 0) {
+      setMovementError("Quantity must be a whole number other than zero.");
+      return;
+    }
+
+    if ((movementForm.type === "IN" || movementForm.type === "OUT") && enteredQty < 0) {
+      setMovementError("Use a positive quantity for IN and OUT movements.");
+      return;
+    }
+
+    const signedQty =
+      movementForm.type === "OUT"
+        ? -Math.abs(enteredQty)
+        : movementForm.type === "IN"
+          ? Math.abs(enteredQty)
+          : enteredQty;
+
+    const unitWeight = Number(movementForm.unit_weight_g);
+    if (!Number.isFinite(unitWeight) || unitWeight <= 0) {
+      setMovementError("Unit weight must be greater than zero.");
+      return;
+    }
+
+    const unitCost = Number(movementForm.unit_cost_rate);
+    if (!Number.isFinite(unitCost) || unitCost < 0) {
+      setMovementError("Unit cost cannot be negative.");
+      return;
+    }
+
+    if (movementForm.type === "OUT" && Math.abs(signedQty) > movementItem.current_qty) {
+      setMovementError(`Only ${movementItem.current_qty} unit(s) are available.`);
+      return;
+    }
+
+    try {
+      setMovementSaving(true);
+
+      await createStockMovement({
+        item_id: movementItem.id,
+        type: movementForm.type,
+        qty: signedQty,
+        unit_weight_g: unitWeight,
+        unit_cost_rate: unitCost,
+        ref_type: "MANUAL",
+        notes: movementForm.notes.trim() || undefined,
+      });
+
+      const refreshedItem = await getInventoryItem(movementItem.id);
+      if (refreshedItem) {
+        setMovementItem(refreshedItem);
+      }
+
+      setMovementForm((previous) => ({ ...previous, qty: 1, notes: "" }));
+      await loadItemMovements(movementItem.id, true);
+      loadItems(true);
+      loadSummary();
+    } catch (error) {
+      setMovementError(error instanceof Error ? error.message : "Failed to save movement");
+    } finally {
+      setMovementSaving(false);
+    }
+  };
+
   const getPurityOptions = (metal: MetalType) =>
     metal === "GOLD" ? GOLD_PURITIES : SILVER_PURITIES;
 
@@ -605,7 +748,7 @@ export default function Inventory() {
                         <button onClick={() => openEditItem(item)} disabled={itemFormSaving} className="rounded-lg p-2 text-[#71717A] hover:bg-[#F4F4F5] disabled:opacity-50" title="Edit">
                           <Edit size={16} />
                         </button>
-                        <button className="rounded-lg p-2 text-[#71717A] hover:bg-[#F4F4F5]" title="Movements (coming soon)">
+                        <button onClick={() => openMovements(item)} className="rounded-lg p-2 text-[#71717A] hover:bg-[#F4F4F5]" title="Movements">
                           <ArrowUpDown size={16} />
                         </button>
                         <button onClick={() => handleDeleteItem(item)} className="rounded-lg p-2 text-[#71717A] hover:bg-red-50 hover:text-red-600" title="Delete">
@@ -632,6 +775,210 @@ export default function Inventory() {
           </div>
         )}
       </Card>
+
+      {/* Item Movements Modal */}
+      {movementModalOpen && movementItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-[#E4E4E7] px-5 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-[#18181B]">Stock Movements</h2>
+                <p className="mt-1 text-xs text-[#71717A]">
+                  {movementItem.sku} • {movementItem.name} • Current stock: {movementItem.current_qty}
+                </p>
+              </div>
+              <button onClick={closeMovements} className="text-[#71717A] hover:text-[#18181B]">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="max-h-[70vh] space-y-5 overflow-y-auto p-5">
+              <form onSubmit={handleMovementSubmit} className="rounded-xl border border-[#E4E4E7] p-4">
+                <h3 className="text-sm font-semibold text-[#18181B]">Record Movement</h3>
+
+                <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-[#18181B]">Type</label>
+                    <select
+                      value={movementForm.type}
+                      onChange={(e) =>
+                        setMovementForm((previous) => ({
+                          ...previous,
+                          type: e.target.value as MovementType,
+                        }))
+                      }
+                      disabled={movementSaving}
+                      className="mt-2 w-full rounded-lg border border-[#D4D4D8] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed"
+                    >
+                      <option value="IN">IN — receive stock</option>
+                      <option value="OUT">OUT — issue/sell stock</option>
+                      <option value="ADJ">ADJ — correction</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-[#18181B]">Quantity</label>
+                    <input
+                      type="number"
+                      step="1"
+                      value={movementForm.qty}
+                      onChange={(e) =>
+                        setMovementForm((previous) => ({ ...previous, qty: Number(e.target.value) }))
+                      }
+                      disabled={movementSaving}
+                      className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed"
+                    />
+                    <p className="mt-1 text-xs text-[#71717A]">
+                      Use a negative quantity only for downward adjustments.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-[#18181B]">Unit Weight (g)</label>
+                    <input
+                      type="number"
+                      step="0.001"
+                      min="0.001"
+                      value={movementForm.unit_weight_g}
+                      onChange={(e) =>
+                        setMovementForm((previous) => ({
+                          ...previous,
+                          unit_weight_g: Number(e.target.value),
+                        }))
+                      }
+                      disabled={movementSaving}
+                      className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-[#18181B]">Unit Cost (₹)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={movementForm.unit_cost_rate}
+                      onChange={(e) =>
+                        setMovementForm((previous) => ({
+                          ...previous,
+                          unit_cost_rate: Number(e.target.value),
+                        }))
+                      }
+                      disabled={movementSaving}
+                      className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-[#18181B]">Notes</label>
+                    <input
+                      type="text"
+                      value={movementForm.notes}
+                      onChange={(e) =>
+                        setMovementForm((previous) => ({ ...previous, notes: e.target.value }))
+                      }
+                      placeholder="Purchase receipt, recount correction, return, etc."
+                      disabled={movementSaving}
+                      className="mt-2 w-full rounded-lg border border-[#D4D4D8] px-3 py-2.5 text-sm outline-none focus:border-[#B08D57] focus:ring-1 focus:ring-[#B08D57] disabled:cursor-not-allowed"
+                    />
+                  </div>
+                </div>
+
+                {movementError && <p className="mt-3 text-sm text-red-600">{movementError}</p>}
+
+                <div className="mt-4 flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={movementSaving}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#B08D57] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#9C7B4C] disabled:opacity-50"
+                  >
+                    {movementSaving ? "Saving..." : "Add Movement"}
+                  </button>
+                </div>
+              </form>
+
+              <div>
+                <h3 className="text-sm font-semibold text-[#18181B]">History</h3>
+
+                {movementsError && <p className="mt-2 text-sm text-red-600">{movementsError}</p>}
+
+                <div className="mt-3 overflow-x-auto rounded-xl border border-[#E4E4E7]">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[#E4E4E7] bg-[#FAFAFA] text-left">
+                        <th className="px-4 py-3 font-medium text-[#71717A]">Date</th>
+                        <th className="px-4 py-3 font-medium text-[#71717A]">Type</th>
+                        <th className="px-4 py-3 font-medium text-[#71717A]">Qty</th>
+                        <th className="px-4 py-3 font-medium text-[#71717A]">Unit</th>
+                        <th className="px-4 py-3 font-medium text-[#71717A]">Reference</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {movements.length === 0 && !movementsLoading ? (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-6 text-center text-[#71717A]">
+                            No movements recorded for this item yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        movements.map((movement) => (
+                          <tr key={movement.id} className="border-b border-[#E4E4E7] last:border-b-0">
+                            <td className="px-4 py-3 text-[#18181B]">
+                              {new Date(movement.created_at).toLocaleString("en-IN", {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              })}
+                            </td>
+                            <td className="px-4 py-3">
+                              <Badge
+                                variant={
+                                  movement.type === "IN"
+                                    ? "default"
+                                    : movement.type === "OUT"
+                                      ? "out"
+                                      : "low"
+                                }
+                              >
+                                {movement.type}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3 font-mono text-[#18181B]">
+                              {movement.qty > 0 ? `+${movement.qty}` : movement.qty}
+                            </td>
+                            <td className="px-4 py-3 text-[#71717A]">
+                              {movement.unit_weight_g.toFixed(3)} g @ ₹
+                              {movement.unit_cost_rate.toLocaleString("en-IN", {
+                                maximumFractionDigits: 0,
+                              })}
+                            </td>
+                            <td className="px-4 py-3 text-[#71717A]">
+                              {[movement.ref_type, movement.notes].filter(Boolean).join(" • ") || "—"}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {movementsLoading && (
+                  <p className="mt-3 text-sm text-[#71717A]">Loading movements...</p>
+                )}
+
+                {hasMoreMovements && (
+                  <button
+                    onClick={() => loadItemMovements(movementItem.id, false, movementsCursor)}
+                    disabled={movementsLoading}
+                    className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-lg border border-[#D4D4D8] px-4 py-2.5 text-sm font-medium text-[#18181B] hover:bg-[#FAFAFA] disabled:opacity-50"
+                  >
+                    {movementsLoading ? "Loading..." : "Load More"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add/Edit Item Modal */}
       {modalOpen && (

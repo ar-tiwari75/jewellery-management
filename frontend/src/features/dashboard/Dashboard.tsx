@@ -240,13 +240,6 @@ export default function Dashboard() {
     };
   }, []);
 
-  /*
-   * Load recent invoices
-   */
-  useEffect(() => {
-    loadRecentInvoices();
-  }, []);
-
   async function loadRecentInvoices() {
     try {
       setRecentInvoicesLoading(true);
@@ -271,6 +264,13 @@ export default function Dashboard() {
       setRecentInvoicesLoading(false);
     }
   }
+
+  /*
+   * Load recent invoices
+   */
+  useEffect(() => {
+    loadRecentInvoices();
+  }, []);
 
 /*
     * Load Dashboard metrics

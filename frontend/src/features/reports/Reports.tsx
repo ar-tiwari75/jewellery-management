@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   BarChart,
   Bar,
@@ -46,8 +46,47 @@ import {
   type TopMovingItem,
 } from "../inventory/inventory.service";
 
+import {
+  FORECAST_COLOR,
+  FORECAST_DAYS,
+  FORECAST_MONTHS,
+  futureDayLabels,
+  futureMonthKeys,
+  projectNextValues,
+} from "./forecast.utils";
+
 const PIE_COLORS = ["#B08D57", "#71717A", "#D4A843", "#52525B", "#E8DFD0"];
 const GOLD = "#B08D57";
+const FORECAST_BAR_FILL = "#D9D1FF";
+
+interface DailyChartRow {
+  date: string;
+  revenue: number | null;
+  invoices: number | null;
+  forecastRevenue: number | null;
+  forecastInvoices: number | null;
+}
+
+interface MonthlyChartRow {
+  month: string;
+  revenue: number | null;
+  forecastRevenue: number | null;
+}
+
+interface GstChartRow {
+  month: string;
+  gst: number | null;
+  forecastGst: number | null;
+}
+
+interface MovementChartRow {
+  date: string;
+  in_qty: number | null;
+  out_qty: number | null;
+  adj_qty: number | null;
+  net_qty: number | null;
+  forecastNet: number | null;
+}
 
 function formatINR(n: number) {
   if (n >= 10000000) return `${(n / 10000000).toFixed(1)}Cr`;
@@ -72,6 +111,24 @@ function SectionTitle({ icon, label, title }: { icon: React.ReactNode; label: st
         <p className="text-[10px] font-medium uppercase tracking-wider text-[#71717A]">{label}</p>
         <h2 className="font-semibold text-[#18181B]">{title}</h2>
       </div>
+    </div>
+  );
+}
+
+function ChartLegend({ actualLabel }: { actualLabel: string }) {
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-[#71717A]">
+      <span className="inline-flex items-center gap-1.5">
+        <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#B08D57]" />
+        {actualLabel}
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span
+          className="inline-block h-2.5 w-2.5 rounded-sm border border-dashed"
+          style={{ backgroundColor: FORECAST_BAR_FILL, borderColor: FORECAST_COLOR }}
+        />
+        Forecast baseline*
+      </span>
     </div>
   );
 }
@@ -130,6 +187,159 @@ export default function Reports() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const dailyForecast = useMemo(() => {
+    const revenueForecast = projectNextValues(
+      dailySales.map((entry) => entry.revenue),
+      FORECAST_DAYS,
+    );
+    const invoiceForecast = projectNextValues(
+      dailySales.map((entry) => entry.invoices),
+      FORECAST_DAYS,
+    ).map((value) => Math.round(value));
+    const futureLabels = futureDayLabels(FORECAST_DAYS);
+
+    const rows: DailyChartRow[] = [
+      ...dailySales.map((entry) => ({
+        date: entry.date,
+        revenue: entry.revenue,
+        invoices: entry.invoices,
+        forecastRevenue: null,
+        forecastInvoices: null,
+      })),
+      ...futureLabels.map((date, index) => ({
+        date: `${date}*`,
+        revenue: null,
+        invoices: null,
+        forecastRevenue: revenueForecast[index] ?? 0,
+        forecastInvoices: invoiceForecast[index] ?? 0,
+      })),
+    ];
+
+    return {
+      rows,
+      nextRevenueTotal: revenueForecast.reduce((total, value) => total + value, 0),
+      nextInvoiceTotal: invoiceForecast.reduce((total, value) => total + value, 0),
+    };
+  }, [dailySales]);
+
+  const monthlyForecast = useMemo(() => {
+    const revenueForecast = projectNextValues(
+      monthlyRevenue.map((entry) => entry.revenue),
+      FORECAST_MONTHS,
+    );
+    const futureLabels = futureMonthKeys(FORECAST_MONTHS);
+    const lastActual = monthlyRevenue[monthlyRevenue.length - 1];
+
+    const rows: MonthlyChartRow[] = [
+      ...monthlyRevenue.map((entry) => ({
+        month: entry.month,
+        revenue: entry.revenue,
+        forecastRevenue: null,
+      })),
+      ...(lastActual
+        ? [
+            {
+              month: lastActual.month,
+              revenue: null,
+              forecastRevenue: lastActual.revenue,
+            },
+          ]
+        : []),
+      ...futureLabels.map((month, index) => ({
+        month: `${month}*`,
+        revenue: null,
+        forecastRevenue: revenueForecast[index] ?? 0,
+      })),
+    ];
+
+    return {
+      rows,
+      nextRevenueTotal: revenueForecast.reduce((total, value) => total + value, 0),
+    };
+  }, [monthlyRevenue]);
+
+  const gstForecast = useMemo(() => {
+    const gstValues = projectNextValues(
+      monthlyGst.map((entry) => entry.gst),
+      FORECAST_MONTHS,
+    );
+    const futureLabels = futureMonthKeys(FORECAST_MONTHS);
+    const lastActual = monthlyGst[monthlyGst.length - 1];
+
+    const rows: GstChartRow[] = [
+      ...monthlyGst.map((entry) => ({
+        month: entry.month,
+        gst: entry.gst,
+        forecastGst: null,
+      })),
+      ...(lastActual
+        ? [
+            {
+              month: lastActual.month,
+              gst: null,
+              forecastGst: lastActual.gst,
+            },
+          ]
+        : []),
+      ...futureLabels.map((month, index) => ({
+        month: `${month}*`,
+        gst: null,
+        forecastGst: gstValues[index] ?? 0,
+      })),
+    ];
+
+    return {
+      rows,
+      nextGstTotal: gstValues.reduce((total, value) => total + value, 0),
+    };
+  }, [monthlyGst]);
+
+  const movementForecast = useMemo(() => {
+    const netForecast = projectNextValues(
+      movementTrend.map((entry) => entry.net_qty),
+      FORECAST_DAYS,
+      { minimum: null, round: false },
+    );
+    const futureLabels = futureDayLabels(FORECAST_DAYS);
+    const lastActual = movementTrend[movementTrend.length - 1];
+
+    const rows: MovementChartRow[] = [
+      ...movementTrend.map((entry) => ({
+        date: entry.date,
+        in_qty: entry.in_qty,
+        out_qty: entry.out_qty,
+        adj_qty: entry.adj_qty,
+        net_qty: entry.net_qty,
+        forecastNet: null,
+      })),
+      ...(lastActual
+        ? [
+            {
+              date: lastActual.date,
+              in_qty: null,
+              out_qty: null,
+              adj_qty: null,
+              net_qty: null,
+              forecastNet: lastActual.net_qty,
+            },
+          ]
+        : []),
+      ...futureLabels.map((date, index) => ({
+        date: `${date}*`,
+        in_qty: null,
+        out_qty: null,
+        adj_qty: null,
+        net_qty: null,
+        forecastNet: netForecast[index] ?? 0,
+      })),
+    ];
+
+    return {
+      rows,
+      nextNetTotal: netForecast.reduce((total, value) => total + value, 0),
+    };
+  }, [movementTrend]);
 
   if (loading) {
     return (
@@ -205,29 +415,89 @@ export default function Reports() {
         </section>
       )}
 
+      {(dailySales.some((entry) => entry.revenue > 0) ||
+        monthlyRevenue.some((entry) => entry.revenue > 0) ||
+        monthlyGst.some((entry) => entry.gst > 0) ||
+        movementTrend.some((entry) => entry.in_qty > 0 || entry.out_qty > 0)) && (
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <Card className="p-5">
+            <p className="text-xs text-[#71717A]">Projected Revenue (7d)</p>
+            <p className="mt-1 text-lg font-bold text-[#18181B]">
+              ₹{formatINR(dailyForecast.nextRevenueTotal)}
+            </p>
+            <p className="mt-1 text-xs text-[#71717A]">Linear-trend baseline</p>
+          </Card>
+
+          <Card className="p-5">
+            <p className="text-xs text-[#71717A]">Projected Invoices (7d)</p>
+            <p className="mt-1 text-lg font-bold text-[#18181B]">
+              {dailyForecast.nextInvoiceTotal.toLocaleString("en-IN")}
+            </p>
+            <p className="mt-1 text-xs text-[#71717A]">Linear-trend baseline</p>
+          </Card>
+
+          <Card className="p-5">
+            <p className="text-xs text-[#71717A]">Projected Revenue (3m)</p>
+            <p className="mt-1 text-lg font-bold text-[#18181B]">
+              ₹{formatINR(monthlyForecast.nextRevenueTotal)}
+            </p>
+            <p className="mt-1 text-xs text-[#71717A]">Linear-trend baseline</p>
+          </Card>
+
+          <Card className="p-5">
+            <p className="text-xs text-[#71717A]">Projected GST (3m)</p>
+            <p className="mt-1 text-lg font-bold text-[#18181B]">
+              ₹{formatINR(gstForecast.nextGstTotal)}
+            </p>
+            <p className="mt-1 text-xs text-[#71717A]">Linear-trend baseline</p>
+          </Card>
+
+          <Card className="p-5">
+            <p className="text-xs text-[#71717A]">Projected Net Stock (7d)</p>
+            <p className="mt-1 text-lg font-bold text-[#18181B]">
+              {movementForecast.nextNetTotal.toLocaleString("en-IN")} units
+            </p>
+            <p className="mt-1 text-xs text-[#71717A]">IN − OUT + adjustments</p>
+          </Card>
+        </section>
+      )}
+
       {/* Daily sales bar chart */}
       <Card>
         <SectionTitle
           icon={<IndianRupee size={18} />}
           label="Daily Trend"
-          title="Daily Sales (Last 30 Days)"
+          title="Daily Sales (Last 30 Days + Next 7 Forecast)"
         />
         <div className="p-5">
+          <ChartLegend actualLabel="Actual revenue" />
           {dailySales.some((d) => d.revenue > 0) ? (
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={dailySales}>
+              <BarChart data={dailyForecast.rows}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F4F4F5" />
                 <XAxis
                   dataKey="date"
                   tick={{ fontSize: 11, fill: "#71717A" }}
-                  interval={Math.floor(dailySales.length / 7)}
+                  interval={Math.floor(dailyForecast.rows.length / 9)}
                 />
                 <YAxis tick={{ fontSize: 11, fill: "#71717A" }} tickFormatter={(v) => formatINR(v)} />
                 <Tooltip
-                  formatter={(v) => [`₹${Number(v ?? 0).toLocaleString("en-IN")}`, "Revenue"]}
+                  formatter={(value, name) => [
+                    `₹${Number(value ?? 0).toLocaleString("en-IN")}`,
+                    name === "forecastRevenue" ? "Forecast revenue" : "Actual revenue",
+                  ]}
                   contentStyle={{ borderRadius: 8, border: "1px solid #E4E4E7", fontSize: 12 }}
                 />
-                <Bar dataKey="revenue" fill={GOLD} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="revenue" name="Actual revenue" fill={GOLD} radius={[4, 4, 0, 0]} />
+                <Bar
+                  dataKey="forecastRevenue"
+                  name="Forecast revenue"
+                  fill={FORECAST_BAR_FILL}
+                  stroke={FORECAST_COLOR}
+                  strokeWidth={1}
+                  strokeDasharray="5 4"
+                  radius={[4, 4, 0, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -242,20 +512,42 @@ export default function Reports() {
           <SectionTitle
             icon={<TrendingUp size={18} />}
             label="Monthly"
-            title="Revenue Trend (12 Months)"
+            title="Revenue Trend (12 Months + Next 3 Forecast)"
           />
           <div className="p-5">
+            <ChartLegend actualLabel="Actual revenue" />
             {monthlyRevenue.some((m) => m.revenue > 0) ? (
               <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={monthlyRevenue}>
+                <LineChart data={monthlyForecast.rows}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F4F4F5" />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#71717A" }} />
                   <YAxis tick={{ fontSize: 11, fill: "#71717A" }} tickFormatter={(v) => formatINR(v)} />
                   <Tooltip
-                    formatter={(v) => [`₹${Number(v ?? 0).toLocaleString("en-IN")}`, "Revenue"]}
+                    formatter={(value, name) => [
+                      `₹${Number(value ?? 0).toLocaleString("en-IN")}`,
+                      name === "forecastRevenue" ? "Forecast revenue" : "Actual revenue",
+                    ]}
                     contentStyle={{ borderRadius: 8, border: "1px solid #E4E4E7", fontSize: 12 }}
                   />
-                  <Line type="monotone" dataKey="revenue" stroke={GOLD} strokeWidth={2} dot={{ fill: GOLD, r: 3 }} />
+                  <Line
+                    type="monotone"
+                    dataKey="revenue"
+                    name="Actual revenue"
+                    stroke={GOLD}
+                    strokeWidth={2}
+                    dot={{ fill: GOLD, r: 3 }}
+                    connectNulls
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="forecastRevenue"
+                    name="Forecast revenue"
+                    stroke={FORECAST_COLOR}
+                    strokeWidth={2}
+                    strokeDasharray="6 4"
+                    dot={{ fill: FORECAST_COLOR, r: 3 }}
+                    connectNulls
+                  />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
@@ -268,20 +560,33 @@ export default function Reports() {
           <SectionTitle
             icon={<IndianRupee size={18} />}
             label="Tax"
-            title="Monthly GST Collected"
+            title="Monthly GST Collected (12 Months + Next 3 Forecast)"
           />
           <div className="p-5">
+            <ChartLegend actualLabel="Actual GST" />
             {monthlyGst.some((g) => g.gst > 0) ? (
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={monthlyGst}>
+                <BarChart data={gstForecast.rows}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F4F4F5" />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#71717A" }} />
                   <YAxis tick={{ fontSize: 11, fill: "#71717A" }} tickFormatter={(v) => formatINR(v)} />
                   <Tooltip
-                    formatter={(v) => [`₹${Number(v ?? 0).toLocaleString("en-IN")}`, "GST"]}
+                    formatter={(value, name) => [
+                      `₹${Number(value ?? 0).toLocaleString("en-IN")}`,
+                      name === "forecastGst" ? "Forecast GST" : "Actual GST",
+                    ]}
                     contentStyle={{ borderRadius: 8, border: "1px solid #E4E4E7", fontSize: 12 }}
                   />
-                  <Bar dataKey="gst" fill="#71717A" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="gst" name="Actual GST" fill="#71717A" radius={[4, 4, 0, 0]} />
+                  <Bar
+                    dataKey="forecastGst"
+                    name="Forecast GST"
+                    fill={FORECAST_BAR_FILL}
+                    stroke={FORECAST_COLOR}
+                    strokeWidth={1}
+                    strokeDasharray="5 4"
+                    radius={[4, 4, 0, 0]}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -335,24 +640,37 @@ export default function Reports() {
           <SectionTitle
             icon={<Receipt size={18} />}
             label="Volume"
-            title="Invoice Count by Day (30 Days)"
+            title="Invoice Count by Day (30 Days + Next 7 Forecast)"
           />
           <div className="p-5">
+            <ChartLegend actualLabel="Actual invoices" />
             {dailySales.some((d) => d.invoices > 0) ? (
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={dailySales}>
+                <BarChart data={dailyForecast.rows}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F4F4F5" />
                   <XAxis
                     dataKey="date"
                     tick={{ fontSize: 11, fill: "#71717A" }}
-                    interval={Math.floor(dailySales.length / 7)}
+                    interval={Math.floor(dailyForecast.rows.length / 9)}
                   />
                   <YAxis tick={{ fontSize: 11, fill: "#71717A" }} allowDecimals={false} />
                   <Tooltip
-                    formatter={(v) => [Number(v ?? 0), "Invoices"]}
+                    formatter={(value, name) => [
+                      Number(value ?? 0),
+                      name === "forecastInvoices" ? "Forecast invoices" : "Actual invoices",
+                    ]}
                     contentStyle={{ borderRadius: 8, border: "1px solid #E4E4E7", fontSize: 12 }}
                   />
-                  <Bar dataKey="invoices" fill="#D4A843" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="invoices" name="Actual invoices" fill="#D4A843" radius={[4, 4, 0, 0]} />
+                  <Bar
+                    dataKey="forecastInvoices"
+                    name="Forecast invoices"
+                    fill={FORECAST_BAR_FILL}
+                    stroke={FORECAST_COLOR}
+                    strokeWidth={1}
+                    strokeDasharray="5 4"
+                    radius={[4, 4, 0, 0]}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -592,23 +910,49 @@ export default function Reports() {
               <SectionTitle
                 icon={<TrendingUp size={18} />}
                 label="Movement"
-                title="Stock Movement Trend (30 Days)"
+                title="Stock Movement Trend (30 Days + Next 7 Forecast)"
               />
               <div className="p-5">
+                <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-[#71717A]">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#3B82F6]" />
+                    Actual net
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span
+                      className="inline-block h-2.5 w-2.5 rounded-sm border border-dashed"
+                      style={{ backgroundColor: FORECAST_BAR_FILL, borderColor: FORECAST_COLOR }}
+                    />
+                    Forecast net*
+                  </span>
+                </div>
                 {movementTrend.some((m) => m.in_qty > 0 || m.out_qty > 0) ? (
                   <ResponsiveContainer width="100%" height={280}>
-                    <LineChart data={movementTrend}>
+                    <LineChart data={movementForecast.rows}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#F4F4F5" />
                       <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#71717A" }} />
                       <YAxis tick={{ fontSize: 11, fill: "#71717A" }} allowDecimals={false} />
                       <Tooltip
-                        formatter={(v, name) => [Number(v ?? 0), name]}
+                        formatter={(value, name) => [
+                          Number(value ?? 0),
+                          name === "forecastNet" ? "Forecast net" : name,
+                        ]}
                         contentStyle={{ borderRadius: 8, border: "1px solid #E4E4E7", fontSize: 12 }}
                       />
-                      <Line type="monotone" dataKey="in_qty" stroke="#22C55E" strokeWidth={2} dot={{ fill: "#22C55E", r: 3 }} name="IN" />
-                      <Line type="monotone" dataKey="out_qty" stroke="#EF4444" strokeWidth={2} dot={{ fill: "#EF4444", r: 3 }} name="OUT" />
-                      <Line type="monotone" dataKey="adj_qty" stroke="#F59E0B" strokeWidth={2} dot={{ fill: "#F59E0B", r: 3 }} name="ADJ" />
-                      <Line type="monotone" dataKey="net_qty" stroke="#3B82F6" strokeWidth={2} dot={{ fill: "#3B82F6", r: 3 }} name="Net" />
+                      <Line type="monotone" dataKey="in_qty" stroke="#22C55E" strokeWidth={2} dot={{ fill: "#22C55E", r: 3 }} name="IN" connectNulls />
+                      <Line type="monotone" dataKey="out_qty" stroke="#EF4444" strokeWidth={2} dot={{ fill: "#EF4444", r: 3 }} name="OUT" connectNulls />
+                      <Line type="monotone" dataKey="adj_qty" stroke="#F59E0B" strokeWidth={2} dot={{ fill: "#F59E0B", r: 3 }} name="ADJ" connectNulls />
+                      <Line type="monotone" dataKey="net_qty" stroke="#3B82F6" strokeWidth={2} dot={{ fill: "#3B82F6", r: 3 }} name="Net" connectNulls />
+                      <Line
+                        type="monotone"
+                        dataKey="forecastNet"
+                        name="Forecast net"
+                        stroke={FORECAST_COLOR}
+                        strokeWidth={2}
+                        strokeDasharray="6 4"
+                        dot={{ fill: FORECAST_COLOR, r: 3 }}
+                        connectNulls
+                      />
                     </LineChart>
                   </ResponsiveContainer>
                 ) : (
@@ -650,6 +994,11 @@ export default function Reports() {
           </div>
         </>
       )}
+
+      <p className="text-xs leading-5 text-[#71717A]">
+        * Forecast baselines use a simple linear trend over the displayed history and ignore seasonality,
+        promotions, stock limits, holidays, and metal-price changes. Treat them as planning baselines, not guarantees.
+      </p>
     </div>
   );
 }

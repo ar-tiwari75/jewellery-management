@@ -275,43 +275,6 @@ export default function Dashboard() {
 /*
     * Load Dashboard metrics
     */
-  useEffect(() => {
-    loadDashboardMetrics();
-  }, []);
-
-  // Refresh metrics when window gains focus (user returns to tab)
-  useEffect(() => {
-    function handleFocus() {
-      loadDashboardMetrics();
-    }
-    window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
-  }, []);
-
-  /*
-   * Load shop name
-   */
-  useEffect(() => {
-    if (!profile?.shop_id) return;
-
-    let mounted = true;
-
-    supabase
-      .from("shops")
-      .select("name")
-      .eq("id", profile.shop_id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (mounted && data?.name) {
-          setShopName(data.name);
-        }
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [profile?.shop_id]);
-
   async function loadDashboardMetrics() {
     try {
       setDashboardMetricsLoading(true);
@@ -336,6 +299,43 @@ export default function Dashboard() {
       setDashboardMetricsLoading(false);
     }
   }
+
+  useEffect(() => {
+    loadDashboardMetrics();
+  }, []);
+
+  // Refresh metrics when window gains focus (user returns to tab)
+  useEffect(() => {
+    function handleFocus() {
+      loadDashboardMetrics();
+    }
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, []);
+
+  /*
+    * Load shop name
+    */
+  useEffect(() => {
+    if (!profile?.shop_id) return;
+
+    let mounted = true;
+
+    supabase
+      .from("shops")
+      .select("name")
+      .eq("id", profile.shop_id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (mounted && data?.name) {
+          setShopName(data.name);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [profile?.shop_id]);
 
   return (
     <div className="space-y-6">
